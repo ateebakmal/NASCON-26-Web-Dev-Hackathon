@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// F1: Identity, Workspace, Permissions
+// ============================================================================
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  permissionSets   PermissionSet[]
+  leads            Lead[]
+  auditLogs        AuditLog[]
+  assignmentRules  AssignmentRule[]
+  employeeStatuses EmployeeStatus[]
+}
+
+enum BaseRole {
+  OWNER
+  ADMIN
+  USER
+}
+
+model User {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name         String
+  email        String
+  passwordHash String
+  baseRole     BaseRole @default(USER)
+
+  permissionSetId String?
+  permissionSet   PermissionSet? @relation(fields: [permissionSetId], references: [id])
+
+  permissionOverrides PermissionOverride[]
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+
+  sessions          Session[]
+  employeeStatus    EmployeeStatus?
+  leadAssignments   LeadAssignment[]
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId])
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// A PermissionSet IS what "Manager" becomes: seeded as a convenience preset
+// at workspace creation, but it is an ordinary, fully editable/clonable/
+// deletable row like any other set the Owner or Admin creates later.
+model PermissionSet {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  isSystem    Boolean   @default(false) // true only for the Owner's implicit full-access set
+
+  permissions PermissionSetItem[]
+  users       User[]
+  createdAt   DateTime            @default(now())
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+// One row per (resource, action) granted. resource/action are a closed
+// string union defined in @ubp/shared, not free text.
+model PermissionSetItem {
+  id              String        @id @default(cuid())
+  permissionSetId String
+  permissionSet   PermissionSet @relation(fields: [permissionSetId], references: [id], onDelete: Cascade)
+  resource        String
+  action          String
+  fieldMask       String[]      @default([])
+
+  @@unique([permissionSetId, resource, action])
+}
+
+// Per-user exceptions layered on top of a user's PermissionSet.
+model PermissionOverride {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource String
+  action   String
+  effect   String // "grant" | "revoke"
+
+  @@unique([userId, resource, action])
+}
+
+// ============================================================================
+// F3: Lead lifecycle engine
+// ============================================================================
+
+enum EmployeeAvailability {
+  AVAILABLE
+  BUSY
+  ON_LEAVE
+  OFFLINE
+}
+
+model EmployeeStatus {
+  id           String               @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId       String               @unique
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availability EmployeeAvailability @default(OFFLINE)
+  maxOpenLeads Int                  @default(10)
+  updatedAt    DateTime             @updatedAt
+
+  @@index([workspaceId, availability])
+}
+
+model AssignmentRule {
+  id                   String    @id @default(cuid())
+  workspaceId          String
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  ackWindowSeconds     Int
+  // Ordered chain: [{type:"next_eligible"}, {type:"backup", userId}, {type:"manager", userId}],
+  // each entry carrying its own timeoutSeconds. If the chain is exhausted and
+  // the lead is still unacknowledged, the engine auto-escalates once more to
+  // the Workspace Owner as an implicit final level (confirmed product rule).
+  escalationLevels     Json
+  idleThresholdSeconds Int
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+
+  @@index([workspaceId, isActive])
+}
+
+enum LeadSource {
+  WEB_FORM
+  WHATSAPP
+  MANUAL
+}
+
+enum LeadStatus {
+  NEW
+  ASSIGNED
+  ACKNOWLEDGED
+  ESCALATED
+  CONVERTED
+  LOST
+}
+
+model Lead {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  source     LeadSource
+  name       String
+  phone      String?
+  email      String?
+  notes      String?
+  rawPayload Json?
+  status     LeadStatus @default(NEW)
+
+  currentOwnerId  String? // denormalized "who owns it right now" -- single source of truth
+  createdAt       DateTime  @default(now())
+  firstAssignedAt DateTime? // glossary: "Assigned time" (first assignment)
+  firstAckAt      DateTime? // glossary: "Time to first response" = firstAckAt - firstAssignedAt
+  escalationCount Int       @default(0)
+  lockVersion     Int       @default(0)
+
+  assignments    LeadAssignment[]
+  escalationJobs EscalationJob[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, currentOwnerId])
+  @@index([workspaceId, createdAt])
+}
+
+enum AssignmentEndReason {
+  ACKNOWLEDGED
+  ESCALATED_TIMEOUT
+  MANUAL_REASSIGN
+  STATUS_CHANGE_REASSIGN
+}
+
+// One row per "hold" of a lead by one assignee -- this IS the escalation history.
+model LeadAssignment {
+  id              String               @id @default(cuid())
+  leadId          String
+  lead            Lead                 @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assigneeId      String
+  assignee        User                 @relation(fields: [assigneeId], references: [id])
+  assignedAt      DateTime             @default(now())
+  ackAt           DateTime?
+  endedAt         DateTime?
+  endReason       AssignmentEndReason?
+  escalationLevel Int                  @default(0)
+
+  escalationJobs EscalationJob[]
+
+  @@index([leadId])
+  @@index([assigneeId, ackAt])
+}
+
+// Durable, DB-backed record of a pending timer. The BullMQ job is a cache of
+// this row, never the source of truth -- on boot, reconciliation reconstructs
+// pending timers from this table, not from the queue.
+enum EscalationJobStatus {
+  PENDING
+  FIRED
+  CANCELLED
+}
+
+model EscalationJob {
+  id           String              @id @default(cuid())
+  leadId       String
+  lead         Lead                @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignmentId String
+  assignment   LeadAssignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  fireAt       DateTime
+  status       EscalationJobStatus @default(PENDING)
+  bullJobId    String?
+  createdAt    DateTime            @default(now())
+
+  @@index([status, fireAt])
+  @@index([leadId])
+}
+
+// ============================================================================
+// F4: Audit log -- append-only. No update/delete endpoint exists at all.
+// ============================================================================
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actorId     String? // null for system/automated actions (e.g. auto-escalation)
+  actorLabel  String // denormalized display name, survives actor deletion
+  eventType   String // "lead.assigned" | "lead.escalated" | "permission.changed" | ...
+  targetType  String // "Lead" | "User" | "PermissionSet" | ...
+  targetId    String
+  before      Json?
+  after       Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, eventType, createdAt])
+  @@index([workspaceId, targetType, targetId])
+}
