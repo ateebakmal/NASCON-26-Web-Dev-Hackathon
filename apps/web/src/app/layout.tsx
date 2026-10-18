@@ -16,6 +16,7 @@ import {
   Sun,
   Target,
   Users2,
+  WifiOff,
   Workflow,
 } from "lucide-react";
 import { useAuth } from "./auth-context";
@@ -60,7 +61,7 @@ export function useToolbar(node: React.ReactNode, deps: React.DependencyList = [
   }, deps);
 }
 
-export function Layout() {
+export function Layout({ liveConnected = true }: { liveConnected?: boolean }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [toolbar, setToolbar] = React.useState<React.ReactNode>(null);
@@ -173,6 +174,17 @@ export function Layout() {
               <PanelLeft className="h-5 w-5" aria-hidden="true" />
             </button>
             <h1 className="text-lg font-semibold text-text">{title}</h1>
+            {/* A dropped live connection means the screen can silently go
+                stale, so say so rather than letting it look current. */}
+            {!liveConnected && (
+              <span
+                className="flex items-center gap-1.5 rounded-sm bg-warning/10 px-2 py-1 text-xs font-medium text-warning"
+                title="Live updates are disconnected; data may be out of date until it reconnects."
+              >
+                <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
+                Reconnecting
+              </span>
+            )}
             <div className="ml-auto flex items-center gap-2">
               <button
                 className="hidden h-10 w-10 items-center justify-center rounded-md border border-border text-text-muted hover:bg-muted sm:flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"

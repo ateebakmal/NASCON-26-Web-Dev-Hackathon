@@ -12,14 +12,21 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers,
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: {
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers,
+      },
+    });
+  } catch {
+    // A network-level failure (API down, DNS, CORS preflight) is not an HTTP
+    // status, so give it one the UI can recognise instead of a raw TypeError.
+    throw new ApiError(0, { message: "Cannot reach the server. Is the API running?" });
+  }
 
   if (!res.ok) {
     let body: unknown = null;

@@ -84,8 +84,17 @@ export class WebhooksController {
         direction: "INBOUND",
         eventType: "webhook.signature_rejected",
         success: false,
-        error: "X-Hub-Signature-256 did not match",
-        payload: { headers: { "x-hub-signature-256": headers["x-hub-signature-256"] } },
+        // Name the provider's own header rather than assuming Meta's, so the
+        // sync history is readable whichever provider is connected.
+        error: headers["x-twilio-signature"]
+          ? "X-Twilio-Signature did not match"
+          : "X-Hub-Signature-256 did not match",
+        payload: {
+          headers: {
+            "x-hub-signature-256": headers["x-hub-signature-256"],
+            "x-twilio-signature": headers["x-twilio-signature"],
+          },
+        },
       });
       return res.status(401).send();
     }

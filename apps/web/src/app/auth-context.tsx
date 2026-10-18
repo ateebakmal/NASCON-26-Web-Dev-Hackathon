@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { loginSchema, signupSchema, type LoginDto, type SignupDto } from "@ubp/shared";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 
 interface MeResponse {
   id: string;
@@ -21,6 +21,8 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   loginError: string | null;
   signupError: string | null;
+  /** True when the API itself is unreachable, as opposed to being logged out. */
+  serverUnreachable: boolean;
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -31,8 +33,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => api.get<MeResponse>("/auth/me"),
-    retry: false,
+    // A 401 here just means "not logged in" and is expected on first load, so
+    // it must not be retried. A network failure is worth one retry in case
+    // the API is mid-restart.
+    retry: (failureCount, error) =>
+      error instanceof ApiError && error.status === 0 && failureCount < 2,
   });
+
+  const serverUnreachable =
+    meQuery.error instanceof ApiError && meQuery.error.status === 0;
 
   const loginMutation = useMutation({
     mutationFn: (dto: LoginDto) => api.post<{ user: MeResponse }>("/auth/login", loginSchema.parse(dto)),
@@ -66,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     loginError: loginMutation.error ? errorMessage(loginMutation.error) : null,
     signupError: signupMutation.error ? errorMessage(signupMutation.error) : null,
+    serverUnreachable,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -15,12 +15,25 @@ import { PermissionSetsPage } from "../features/permissions/permission-sets-page
 import { SettingsPage } from "../features/settings/settings-page";
 
 export function App() {
-  const { user, isLoading } = useAuth();
-  useRealtimeLeadEvents(Boolean(user));
+  const { user, isLoading, serverUnreachable } = useAuth();
+  const { connected } = useRealtimeLeadEvents(Boolean(user));
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-text-muted">Loading…</div>
+    );
+  }
+
+  if (serverUnreachable) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-6 text-center">
+        <p className="text-lg font-semibold text-text">Can't reach the server</p>
+        <p className="max-w-sm text-base text-text-muted">
+          The API isn't responding. Start it with{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-sm">pnpm dev:api</code>, then
+          reload.
+        </p>
+      </div>
     );
   }
 
@@ -36,7 +49,7 @@ export function App() {
 
   return (
     <Routes>
-      <Route element={<Layout />}>
+      <Route element={<Layout liveConnected={connected} />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/deals" element={<DealsPage />} />
