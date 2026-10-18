@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
@@ -417,7 +422,208 @@ export class CrmService {
     return { success: true };
   }
 
+  // ----------------------------------------------------------------- pipelines
+
+  async createPipeline(workspaceId: string, name: string, actor: Actor) {
+    const count = await this.prisma.pipeline.count({ where: { workspaceId } });
+    const pipeline = await this.prisma.pipeline.create({
+      data: {
+        workspaceId,
+        name,
+        position: count,
+        isDefault: count === 0,
+        // Every pipeline starts usable: the spec requires at least one Open,
+        // one Won and one Lost stage, so seed them rather than leaving an
+        // empty board an admin has to repair.
+        stages: {
+          create: [
+            { name: "New", position: 0, type: "OPEN", color: "slate" },
+            { name: "In progress", position: 1, type: "OPEN", color: "blue" },
+            { name: "Won", position: 2, type: "WON", color: "emerald" },
+            { name: "Lost", position: 3, type: "LOST", color: "rose" },
+          ],
+        },
+      },
+      include: { stages: true },
+    });
+
+    await this.audit.record({
+      workspaceId,
+      actorId: actor.userId,
+      actorLabel: actor.actorLabel,
+      eventType: "pipeline.created",
+      targetType: "Pipeline",
+      targetId: pipeline.id,
+      after: { name: pipeline.name },
+    });
+    return pipeline;
+  }
+
+  async updatePipeline(
+    workspaceId: string,
+    id: string,
+    data: { name?: string; isDefault?: boolean },
+    actor: Actor
+  ) {
+    const existing = await this.prisma.pipeline.findFirst({ where: { id, workspaceId } });
+    if (!existing) throw new NotFoundException("Pipeline not found");
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Exactly one default at a time.
+      if (data.isDefault) {
+        await tx.pipeline.updateMany({ where: { workspaceId }, data: { isDefault: false } });
+      }
+      return tx.pipeline.update({ where: { id }, data });
+    });
+
+    await this.audit.record({
+      workspaceId,
+      actorId: actor.userId,
+      actorLabel: actor.actorLabel,
+      eventType: "pipeline.updated",
+      targetType: "Pipeline",
+      targetId: id,
+      before: { name: existing.name, isDefault: existing.isDefault },
+      after: { name: updated.name, isDefault: updated.isDefault },
+    });
+    return updated;
+  }
+
   // -------------------------------------------------------------------- stages
+
+  async createStage(
+    workspaceId: string,
+    pipelineId: string,
+    data: { name: string; type?: "OPEN" | "WON" | "LOST"; color?: string },
+    actor: Actor
+  ) {
+    const pipeline = await this.prisma.pipeline.findFirst({ where: { id: pipelineId, workspaceId } });
+    if (!pipeline) throw new NotFoundException("Pipeline not found");
+
+    const last = await this.prisma.stage.findFirst({
+      where: { pipelineId },
+      orderBy: { position: "desc" },
+    });
+
+    const stage = await this.prisma.stage.create({
+      data: {
+        pipelineId,
+        name: data.name,
+        type: data.type ?? "OPEN",
+        color: data.color ?? "slate",
+        position: (last?.position ?? -1) + 1,
+      },
+    });
+
+    await this.audit.record({
+      workspaceId,
+      actorId: actor.userId,
+      actorLabel: actor.actorLabel,
+      eventType: "stage.created",
+      targetType: "Stage",
+      targetId: stage.id,
+      after: { name: stage.name, type: stage.type },
+    });
+    return stage;
+  }
+
+  /** Persists a drag-reorder as one transaction so positions never interleave. */
+  async reorderStages(workspaceId: string, pipelineId: string, orderedIds: string[], actor: Actor) {
+    const stages = await this.prisma.stage.findMany({
+      where: { pipelineId, pipeline: { workspaceId } },
+    });
+    if (stages.length !== orderedIds.length) {
+      throw new BadRequestException("The reorder must list every stage exactly once.");
+    }
+
+    await this.prisma.$transaction(
+      orderedIds.map((id, position) =>
+        this.prisma.stage.update({ where: { id }, data: { position } })
+      )
+    );
+
+    await this.audit.record({
+      workspaceId,
+      actorId: actor.userId,
+      actorLabel: actor.actorLabel,
+      eventType: "stage.reordered",
+      targetType: "Pipeline",
+      targetId: pipelineId,
+      after: { order: orderedIds },
+    });
+    return { success: true };
+  }
+
+  /**
+   * Deleting a stage that holds deals is only allowed with somewhere to put
+   * them: the deals move and the stage is removed in one transaction, so a
+   * failure can never strand them (F2.5, A2.4, Q4).
+   */
+  async deleteStage(
+    workspaceId: string,
+    stageId: string,
+    moveToStageId: string | undefined,
+    actor: Actor
+  ) {
+    const stage = await this.prisma.stage.findFirst({
+      where: { id: stageId, pipeline: { workspaceId } },
+      include: { _count: { select: { opportunities: true } }, pipeline: true },
+    });
+    if (!stage) throw new NotFoundException("Stage not found");
+
+    const siblings = await this.prisma.stage.findMany({
+      where: { pipelineId: stage.pipelineId, id: { not: stageId } },
+    });
+    if (siblings.length === 0) {
+      throw new BadRequestException("A pipeline must keep at least one stage.");
+    }
+    // Every pipeline must retain an Open, a Won and a Lost stage (A2.2).
+    if (!siblings.some((s) => s.type === stage.type)) {
+      throw new BadRequestException(
+        `This is the only ${stage.type} stage. Add another ${stage.type} stage before deleting it.`
+      );
+    }
+
+    const dealCount = stage._count.opportunities;
+    if (dealCount > 0 && !moveToStageId) {
+      throw new ConflictException({
+        error: "STAGE_NOT_EMPTY",
+        message: `"${stage.name}" holds ${dealCount} deal(s). Choose where to move them.`,
+        stageId,
+        dealCount,
+        candidates: siblings.map((s) => ({ id: s.id, name: s.name, type: s.type })),
+      });
+    }
+
+    if (moveToStageId && !siblings.some((s) => s.id === moveToStageId)) {
+      throw new BadRequestException("The destination stage must be in the same pipeline.");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (dealCount > 0 && moveToStageId) {
+        await tx.opportunity.updateMany({
+          where: { stageId, workspaceId },
+          data: { stageId: moveToStageId },
+        });
+      }
+      await tx.stage.delete({ where: { id: stageId } });
+      await this.audit.record(
+        {
+          workspaceId,
+          actorId: actor.userId,
+          actorLabel: actor.actorLabel,
+          eventType: "stage.deleted",
+          targetType: "Stage",
+          targetId: stageId,
+          before: { name: stage.name, type: stage.type, dealCount },
+          after: { movedTo: moveToStageId ?? null },
+        },
+        tx
+      );
+    });
+
+    return { success: true, movedDeals: dealCount };
+  }
 
   async updateStage(
     workspaceId: string,

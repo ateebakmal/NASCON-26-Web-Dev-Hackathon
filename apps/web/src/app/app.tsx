@@ -12,6 +12,7 @@ import { LeadsPage } from "../features/leads/leads-page";
 import { RecoveryQueuePage } from "../features/recovery-queue/recovery-queue-page";
 import { EmployeeStatusPage } from "../features/employee-status/employee-status-page";
 import { PermissionSetsPage } from "../features/permissions/permission-sets-page";
+import { SettingsPage } from "../features/settings/settings-page";
 
 export function App() {
   const { user, isLoading } = useAuth();
@@ -45,6 +46,7 @@ export function App() {
         <Route path="/recovery-queue" element={<RecoveryQueuePage />} />
         <Route path="/employees" element={<EmployeeStatusPage />} />
         <Route path="/permission-sets" element={<PermissionSetsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

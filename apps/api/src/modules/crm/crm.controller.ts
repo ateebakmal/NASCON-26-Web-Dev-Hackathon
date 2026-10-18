@@ -25,6 +25,67 @@ export class CrmController {
     return this.crm.getBoard(user.workspaceId, pipelineId);
   }
 
+  @Post("pipelines")
+  @RequirePermission("opportunities:edit")
+  createPipeline(@CurrentUser() user: Caller, @Body() body: { name: string }) {
+    return this.crm.createPipeline(user.workspaceId, body.name, {
+      userId: user.userId,
+      actorLabel: user.userName,
+    });
+  }
+
+  @Patch("pipelines/:id")
+  @RequirePermission("opportunities:edit")
+  updatePipeline(
+    @CurrentUser() user: Caller,
+    @Param("id") id: string,
+    @Body() body: { name?: string; isDefault?: boolean }
+  ) {
+    return this.crm.updatePipeline(user.workspaceId, id, body, {
+      userId: user.userId,
+      actorLabel: user.userName,
+    });
+  }
+
+  @Post("pipelines/:id/stages")
+  @RequirePermission("opportunities:edit")
+  createStage(
+    @CurrentUser() user: Caller,
+    @Param("id") pipelineId: string,
+    @Body() body: { name: string; type?: "OPEN" | "WON" | "LOST"; color?: string }
+  ) {
+    return this.crm.createStage(user.workspaceId, pipelineId, body, {
+      userId: user.userId,
+      actorLabel: user.userName,
+    });
+  }
+
+  @Post("pipelines/:id/stages/reorder")
+  @RequirePermission("opportunities:edit")
+  reorderStages(
+    @CurrentUser() user: Caller,
+    @Param("id") pipelineId: string,
+    @Body() body: { orderedIds: string[] }
+  ) {
+    return this.crm.reorderStages(user.workspaceId, pipelineId, body.orderedIds, {
+      userId: user.userId,
+      actorLabel: user.userName,
+    });
+  }
+
+  @Delete("stages/:id")
+  @RequirePermission("opportunities:delete")
+  deleteStage(
+    @CurrentUser() user: Caller,
+    @Param("id") id: string,
+    @Query("moveTo") moveTo?: string
+  ) {
+    return this.crm.deleteStage(user.workspaceId, id, moveTo, {
+      userId: user.userId,
+      actorLabel: user.userName,
+    });
+  }
+
   @Patch("stages/:id")
   @RequirePermission("opportunities:edit")
   updateStage(

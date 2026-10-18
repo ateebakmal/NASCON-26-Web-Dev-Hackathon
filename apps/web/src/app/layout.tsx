@@ -32,6 +32,7 @@ const NAV_PRIMARY = [
 const NAV_SECONDARY = [
   { to: "/employees", label: "Team", icon: Workflow },
   { to: "/permission-sets", label: "Roles", icon: Shield },
+  { to: "/settings", label: "Pipelines & Fields", icon: Settings },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -42,6 +43,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/recovery-queue": "Recovery Queue",
   "/employees": "Team",
   "/permission-sets": "Roles & Permissions",
+  "/settings": "Pipelines & Fields",
 };
 
 /** Set by each page to render its own toolbar row under the top bar. */
@@ -136,11 +138,6 @@ export function Layout() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 px-2.5 py-2 text-base text-text-muted">
-              <Settings className="h-4 w-4" aria-hidden="true" />
-              Settings
-              <ChevronRight className="ml-auto h-4 w-4" aria-hidden="true" />
-            </div>
             <div className="flex items-center gap-2 px-2.5 py-2 text-base text-text-muted">
               <LifeBuoy className="h-4 w-4" aria-hidden="true" />
               Help Center
