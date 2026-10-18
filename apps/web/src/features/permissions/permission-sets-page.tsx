@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Badge } from "../../components/ui/badge";
 import { cn } from "../../lib/utils";
 import { usePermissionSets, useUpdatePermissionSet, type PermissionSetRow } from "./api";
+import { MembersPanel } from "./members-panel";
 
 // Proves "Manager is a configurable bundle, not a hardcoded role": every row
 // here -- including the seeded "Manager" preset -- is edited through this
@@ -31,7 +32,10 @@ export function PermissionSetsPage() {
           Could not load permission sets.
         </p>
       ) : (
-        data?.map((set) => <PermissionSetCard key={set.id} set={set} />)
+        <>
+          <MembersPanel sets={data ?? []} />
+          {data?.map((set) => <PermissionSetCard key={set.id} set={set} />)}
+        </>
       )}
     </div>
   );
@@ -45,6 +49,8 @@ function PermissionSetCard({ set }: { set: PermissionSetRow }) {
     setGranted(new Set(set.permissions.map((p) => `${p.resource}:${p.action}`)));
   }, [set.permissions]);
 
+  const [error, setError] = React.useState<string | null>(null);
+
   const toggle = (resource: Resource, action: Action) => {
     const key = `${resource}:${action}`;
     const next = new Set(granted);
@@ -56,7 +62,18 @@ function PermissionSetCard({ set }: { set: PermissionSetRow }) {
       const [r, a] = k.split(":") as [Resource, Action];
       return { resource: r, action: a };
     });
-    update.mutate({ id: set.id, items });
+    setError(null);
+    update.mutate(
+      { id: set.id, items },
+      {
+        onError: (err) => {
+          // Revert the optimistic tick so the UI never shows a grant the
+          // server refused (e.g. the no-privilege-escalation rule).
+          setGranted(new Set(set.permissions.map((p) => `${p.resource}:${p.action}`)));
+          setError(err instanceof Error ? err.message : "Could not update this role");
+        },
+      }
+    );
   };
 
   return (
@@ -67,6 +84,11 @@ function PermissionSetCard({ set }: { set: PermissionSetRow }) {
           {set.isSystem && <Badge variant="primary">System</Badge>}
         </div>
         <CardDescription>{set.users.length} member(s)</CardDescription>
+        {error && (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         {set.isSystem ? (

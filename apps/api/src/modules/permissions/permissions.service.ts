@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type { Redis } from "ioredis";
 import { PrismaService } from "../../prisma/prisma.service";
 import { REDIS_CLIENT } from "../../queue/redis.module";
@@ -124,7 +124,39 @@ export class PermissionsService {
     actor: { userId: string; actorLabel: string }
   ) {
     const existing = await this.prisma.permissionSet.findFirst({ where: { id, workspaceId }, include: { permissions: true } });
-    if (!existing) throw new Error("Permission set not found");
+    if (!existing) throw new NotFoundException("Permission set not found");
+
+    // The Owner's implicit full-access set is what the short-circuit in
+    // hasPermission relies on; editing it would be meaningless at best.
+    if (existing.isSystem) {
+      throw new ForbiddenException("The Owner's full-access set cannot be edited.");
+    }
+
+    // No privilege escalation (A1.3): nobody may grant a permission they do
+    // not themselves hold. The Owner holds everything, so this only ever
+    // constrains Admins and custom roles.
+    if (data.items) {
+      const actorUser = await this.prisma.user.findUnique({ where: { id: actor.userId } });
+      if (actorUser && actorUser.baseRole !== "OWNER") {
+        const currentlyGranted = new Set(
+          existing.permissions.map((p) => `${p.resource}:${p.action}`)
+        );
+        const beingAdded = data.items.filter(
+          (i) => !currentlyGranted.has(`${i.resource}:${i.action}`)
+        );
+        for (const item of beingAdded) {
+          const held = await this.hasPermission(
+            actor.userId,
+            `${item.resource}:${item.action}` as PermissionKey
+          );
+          if (!held) {
+            throw new ForbiddenException(
+              `You cannot grant "${item.resource}:${item.action}" because you do not hold it yourself.`
+            );
+          }
+        }
+      }
+    }
 
     const before = existing;
     const updated = await this.prisma.$transaction(async (tx) => {

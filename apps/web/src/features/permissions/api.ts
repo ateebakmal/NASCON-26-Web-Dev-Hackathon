@@ -32,3 +32,50 @@ export function useUpdatePermissionSet() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["permission-sets"] }),
   });
 }
+
+export type BaseRole = "OWNER" | "ADMIN" | "USER";
+
+export interface WorkspaceUser {
+  id: string;
+  name: string;
+  email: string;
+  baseRole: BaseRole;
+  isActive: boolean;
+  permissionSet: { id: string; name: string } | null;
+}
+
+export function useWorkspaceUsers() {
+  return useQuery({
+    queryKey: ["workspace-users"],
+    queryFn: () => api.get<WorkspaceUser[]>("/users"),
+  });
+}
+
+function invalidateMembers(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["workspace-users"] });
+  qc.invalidateQueries({ queryKey: ["permission-sets"] });
+}
+
+/** Assigns a member to a role, or changes their base level. */
+export function useUpdateMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; baseRole?: BaseRole; permissionSetId?: string }) =>
+      api.patch(`/users/${id}`, body),
+    onSuccess: () => invalidateMembers(qc),
+  });
+}
+
+export function useInviteMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      name: string;
+      email: string;
+      password: string;
+      baseRole: BaseRole;
+      permissionSetId?: string;
+    }) => api.post("/users", body),
+    onSuccess: () => invalidateMembers(qc),
+  });
+}
