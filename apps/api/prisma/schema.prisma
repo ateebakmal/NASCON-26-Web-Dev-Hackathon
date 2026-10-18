@@ -25,6 +25,10 @@ model Workspace {
   employeeStatuses EmployeeStatus[]
   companies        Company[]
   contacts         Contact[]
+  conversations    Conversation[]
+  messages         Message[]
+  integrations     IntegrationConnection[]
+  integrationEvents IntegrationEvent[]
   pipelines        Pipeline[]
   opportunities    Opportunity[]
   customFields     CustomFieldDefinition[]
@@ -323,6 +327,7 @@ model Contact {
 
   opportunities Opportunity[]
   appointments  Appointment[]
+  conversations Conversation[]
 
   @@index([workspaceId])
   @@index([workspaceId, phone])
@@ -500,4 +505,136 @@ model Appointment {
   createdAt   DateTime @default(now())
 
   @@index([workspaceId, startsAt])
+}
+
+// ============================================================================
+// I1 / I5: messaging conversations and the integration framework
+// ============================================================================
+
+enum Channel {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+model Conversation {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  channel   Channel @default(WHATSAPP)
+
+  // Shown on the conversation and used to gate visibility (I1.6).
+  assignedUserId String?
+  lastMessageAt  DateTime @default(now())
+  // Last inbound message time: the WhatsApp free-form reply window is 24h
+  // from this, which the composer surfaces.
+  lastInboundAt  DateTime?
+  createdAt      DateTime @default(now())
+
+  messages Message[]
+
+  @@unique([workspaceId, contactId, channel])
+  @@index([workspaceId, lastMessageAt])
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  RECEIVED
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model Message {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  direction MessageDirection
+  body      String
+  status    MessageStatus    @default(RECEIVED)
+  // The provider's own message id. Unique per workspace so a webhook
+  // delivered twice cannot create two messages (I1.8).
+  providerRef   String?
+  failureReason String?
+  sentByUserId  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([workspaceId, providerRef])
+  @@index([conversationId, createdAt])
+}
+
+enum IntegrationProvider {
+  WHATSAPP_CLOUD
+  STRIPE
+  GOOGLE_CALENDAR
+  RESEND
+}
+
+enum IntegrationStatus {
+  NOT_CONNECTED
+  CONNECTED
+  ERROR
+}
+
+model IntegrationConnection {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  provider IntegrationProvider
+  status   IntegrationStatus   @default(NOT_CONNECTED)
+  // Per-workspace credentials. Never returned to the browser in full --
+  // only a last-4 hint is exposed (I5.2, I5.3).
+  credentials Json @default("{}")
+  // Routes an inbound webhook to exactly one workspace, so one tenant's
+  // provider can never deliver into another's data.
+  webhookKey    String  @unique @default(cuid())
+  lastSuccessAt DateTime?
+  lastError     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([workspaceId, provider])
+  @@index([workspaceId])
+}
+
+enum IntegrationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+/// Synchronization history: every inbound webhook and outbound call, so
+/// nothing an external service does is silently lost (I5.4).
+model IntegrationEvent {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  provider  IntegrationProvider
+  direction IntegrationDirection
+  eventType String
+  // Provider's event/message id, used to ignore duplicate deliveries.
+  providerEventId String?
+  payload         Json?
+  success         Boolean  @default(true)
+  error           String?
+  reference       String?
+  createdAt       DateTime @default(now())
+
+  @@unique([workspaceId, provider, providerEventId])
+  @@index([workspaceId, provider, createdAt])
 }

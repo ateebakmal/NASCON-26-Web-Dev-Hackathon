@@ -17,6 +17,7 @@ import { AssignmentEngineModule } from "./modules/assignment-engine/assignment-e
 import { LeadsModule } from "./modules/leads/leads.module";
 import { CrmModule } from "./modules/crm/crm.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { MessagingModule } from "./modules/messaging/messaging.module";
 
 import { SessionAuthGuard } from "./common/guards/session-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
@@ -39,6 +40,7 @@ import { FieldMaskInterceptor } from "./common/interceptors/field-mask.intercept
     LeadsModule,
     CrmModule,
     DashboardModule,
+    MessagingModule,
   ],
   controllers: [AppController],
   providers: [

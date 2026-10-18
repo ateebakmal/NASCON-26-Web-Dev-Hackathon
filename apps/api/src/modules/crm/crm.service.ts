@@ -284,7 +284,16 @@ export class CrmService {
         take: 50,
       }),
       this.prisma.lead.findMany({
-        where: { workspaceId, OR: [{ phone: contact.phone ?? " " }, { email: contact.email ?? " " }] },
+        where: {
+          workspaceId,
+          OR: [
+            ...(contact.phone ? [{ phone: contact.phone }] : []),
+            ...(contact.email ? [{ email: contact.email }] : []),
+            // Guarantees an empty result rather than matching everything when
+            // the contact has neither a phone nor an email.
+            ...(!contact.phone && !contact.email ? [{ id: "__none__" }] : []),
+          ],
+        },
         orderBy: { createdAt: "desc" },
       }),
     ]);

@@ -131,7 +131,7 @@ export class AssignmentEngineService implements OnModuleInit {
   async createLeadAndAssign(
     workspaceId: string,
     data: { source: "MANUAL" | "WEB_FORM" | "WHATSAPP"; name: string; phone?: string; email?: string; notes?: string },
-    actor: { userId: string; actorLabel: string }
+    actor: { userId: string | null; actorLabel: string }
   ): Promise<Lead> {
     const rule = await this.getActiveRule(workspaceId);
     if (!rule) {
