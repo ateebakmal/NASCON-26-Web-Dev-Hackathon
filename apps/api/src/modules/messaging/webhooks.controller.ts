@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res } from "@nestjs/common";
 import type { Request, Response } from "express";
+import { ConfigService } from "@nestjs/config";
+import type { Prisma } from "@prisma/client";
 import { Public } from "../../common/decorators/public.decorator";
 import { MessagingService } from "./messaging.service";
+import type { WebhookContext } from "./messaging.port";
 
 /**
  * Meta's webhook endpoint. Public because the caller is Meta, not a logged-in
@@ -12,7 +15,10 @@ import { MessagingService } from "./messaging.service";
  */
 @Controller("webhooks/whatsapp")
 export class WebhooksController {
-  constructor(private readonly messaging: MessagingService) {}
+  constructor(
+    private readonly messaging: MessagingService,
+    private readonly config: ConfigService
+  ) {}
 
   /**
    * Meta's subscription handshake: it GETs with a challenge and expects the
@@ -57,12 +63,20 @@ export class WebhooksController {
     const connection = await this.messaging.findConnectionByWebhookKey(webhookKey);
     if (!connection) return res.status(404).send();
 
-    const creds = this.messaging.credentialsOf(connection);
     // rawBody is captured by the verify hook in main.ts -- re-serialising the
-    // parsed JSON would change the bytes and the HMAC would never match.
-    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody ?? Buffer.alloc(0);
+    // parsed JSON would change the bytes and Meta's HMAC would never match.
+    // Twilio instead signs the public URL plus the sorted form fields, which
+    // is why the public base comes from config: behind a tunnel the request's
+    // own host is the internal one and would never match.
+    const base = this.config.get<string>("PUBLIC_BASE_URL", "");
+    const ctx = {
+      rawBody: (req as Request & { rawBody?: Buffer }).rawBody ?? Buffer.alloc(0),
+      headers,
+      url: `${base}${req.originalUrl}`,
+      params: (body ?? {}) as Record<string, string>,
+    };
 
-    if (!this.messaging.verifySignature(rawBody, headers, creds.appSecret)) {
+    if (!this.messaging.verifySignature(connection, ctx)) {
       // A forged or altered request is rejected AND recorded, so a rejected
       // signature is visible in the sync history rather than silent (I1.2).
       await this.messaging.recordEvent({
@@ -80,7 +94,7 @@ export class WebhooksController {
     res.status(200).send();
 
     try {
-      await this.process(connection.workspaceId, body);
+      await this.process(connection.workspaceId, connection, ctx);
     } catch (err) {
       await this.messaging.recordEvent({
         workspaceId: connection.workspaceId,
@@ -92,8 +106,12 @@ export class WebhooksController {
     }
   }
 
-  private async process(workspaceId: string, body: unknown) {
-    const { messages, statuses } = this.messaging.parseWebhook(body);
+  private async process(
+    workspaceId: string,
+    connection: { credentials: Prisma.JsonValue },
+    ctx: WebhookContext
+  ) {
+    const { messages, statuses } = this.messaging.parseWebhook(connection, ctx);
 
     for (const msg of messages) {
       // The provider's message id is the dedupe key: a redelivered webhook

@@ -6,7 +6,7 @@ import type {
   SendResult,
   StandardInboundMessage,
   StandardStatusUpdate,
-  WhatsAppCredentials,
+  WebhookContext,
 } from "../messaging.port";
 
 // Shape of the slice of Meta's webhook payload we actually read.
@@ -42,21 +42,22 @@ export class WhatsAppCloudAdapter implements MessagingPort {
    * X-Hub-Signature-256: sha256=<hex>. The comparison is timing-safe so the
    * endpoint doesn't leak signature bytes through response timing.
    */
-  verifySignature(rawBody: Buffer, headers: Record<string, unknown>, appSecret: string): boolean {
-    const header = (headers["x-hub-signature-256"] ?? headers["X-Hub-Signature-256"]) as
+  verifySignature(ctx: WebhookContext, appSecret: string): boolean {
+    const header = (ctx.headers["x-hub-signature-256"] ?? ctx.headers["X-Hub-Signature-256"]) as
       | string
       | undefined;
-    if (!header?.startsWith("sha256=") || !rawBody?.length) return false;
+    if (!header?.startsWith("sha256=") || !ctx.rawBody?.length) return false;
 
-    const expected = createHmac("sha256", appSecret).update(rawBody).digest("hex");
+    const expected = createHmac("sha256", appSecret).update(ctx.rawBody).digest("hex");
     const received = header.slice("sha256=".length);
     if (received.length !== expected.length) return false;
 
     return timingSafeEqual(Buffer.from(received, "hex"), Buffer.from(expected, "hex"));
   }
 
-  parseWebhook(payload: unknown): ParsedWebhook {
-    const body = payload as CloudApiPayload;
+  parseWebhook(ctx: WebhookContext): ParsedWebhook {
+    // Meta posts JSON; the already-parsed body is recovered from the raw bytes.
+    const body = safeJson(ctx.rawBody) as CloudApiPayload;
     const messages: StandardInboundMessage[] = [];
     const statuses: StandardStatusUpdate[] = [];
 
@@ -111,9 +112,10 @@ export class WhatsAppCloudAdapter implements MessagingPort {
   }: {
     toPhone: string;
     body: string;
-    credentials: WhatsAppCredentials;
+    credentials: Record<string, string>;
   }): Promise<SendResult> {
-    const url = `https://graph.facebook.com/${credentials.apiVersion}/${credentials.phoneNumberId}/messages`;
+    const apiVersion = credentials.apiVersion || "v21.0";
+    const url = `https://graph.facebook.com/${apiVersion}/${credentials.phoneNumberId}/messages`;
 
     const res = await fetch(url, {
       method: "POST",
@@ -156,3 +158,11 @@ const STATUS_MAP: Record<string, StandardStatusUpdate["status"]> = {
   read: "READ",
   failed: "FAILED",
 };
+
+function safeJson(raw: Buffer): unknown {
+  try {
+    return JSON.parse(raw.toString("utf-8"));
+  } catch {
+    return {};
+  }
+}

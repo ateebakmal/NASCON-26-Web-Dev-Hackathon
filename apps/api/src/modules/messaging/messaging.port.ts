@@ -32,25 +32,33 @@ export interface SendResult {
   providerMessageId: string;
 }
 
+/**
+ * Everything an adapter might need to authenticate a request. Providers
+ * disagree about what is signed: Meta signs the raw JSON body, Twilio signs
+ * the public URL plus the sorted form fields. Passing all of it keeps the
+ * port honest rather than privileging one scheme.
+ */
+export interface WebhookContext {
+  rawBody: Buffer;
+  headers: Record<string, unknown>;
+  /** The exact public URL the provider called, including query string. */
+  url: string;
+  /** Parsed body params, for providers that sign form fields. */
+  params: Record<string, string>;
+}
+
 export interface MessagingPort {
-  readonly provider: "WHATSAPP_CLOUD";
-
-  /**
-   * Verify the request really came from the provider. Implementations must
-   * use the raw, unparsed body -- re-serialising JSON changes the bytes and
-   * the signature will never match.
-   */
-  verifySignature(rawBody: Buffer, headers: Record<string, unknown>, appSecret: string): boolean;
-
-  /** Normalise a provider payload into the standard shape. */
-  parseWebhook(payload: unknown): ParsedWebhook;
-
+  readonly provider: MessagingProvider;
+  verifySignature(ctx: WebhookContext, secret: string): boolean;
+  parseWebhook(ctx: WebhookContext): ParsedWebhook;
   sendText(params: {
     toPhone: string;
     body: string;
-    credentials: WhatsAppCredentials;
+    credentials: Record<string, string>;
   }): Promise<SendResult>;
 }
+
+export type MessagingProvider = "WHATSAPP_CLOUD" | "TWILIO_WHATSAPP";
 
 export interface WhatsAppCredentials {
   phoneNumberId: string;
@@ -58,6 +66,13 @@ export interface WhatsAppCredentials {
   appSecret: string;
   verifyToken: string;
   apiVersion: string;
+}
+
+export interface TwilioCredentials {
+  accountSid: string;
+  authToken: string;
+  /** Sandbox default is whatsapp:+14155238886. */
+  whatsappFrom: string;
 }
 
 export const MESSAGING_PORT = "MESSAGING_PORT";

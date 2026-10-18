@@ -92,6 +92,24 @@ export class MessagingController {
     );
   }
 
+  /** Connect Twilio instead of Meta. Falls back to env when fields are omitted. */
+  @Post("integrations/whatsapp/connect-twilio")
+  @RequirePermission("integrations:manage_integrations")
+  connectTwilio(
+    @CurrentUser() user: Caller,
+    @Body() body: { accountSid?: string; authToken?: string; whatsappFrom?: string }
+  ) {
+    return this.messaging.connectTwilio(
+      user.workspaceId,
+      {
+        accountSid: body.accountSid ?? this.config.get<string>("TWILIO_ACCOUNT_SID", ""),
+        authToken: body.authToken ?? this.config.get<string>("TWILIO_AUTH_TOKEN", ""),
+        whatsappFrom: body.whatsappFrom ?? this.config.get<string>("TWILIO_WHATSAPP_FROM", ""),
+      },
+      { userId: user.userId, actorLabel: user.userName }
+    );
+  }
+
   @Get("integrations/whatsapp/events")
   @RequirePermission("integrations:view")
   events(@CurrentUser() user: Caller) {

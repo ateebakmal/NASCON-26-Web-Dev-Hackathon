@@ -4,9 +4,12 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { AssignmentEngineService } from "../assignment-engine/assignment-engine.service";
 import { RealtimeGateway } from "../realtime/realtime.gateway";
 import { WhatsAppCloudAdapter } from "./adapters/whatsapp-cloud.adapter";
+import { TwilioWhatsAppAdapter } from "./adapters/twilio-whatsapp.adapter";
 import type {
+  MessagingPort,
   StandardInboundMessage,
   StandardStatusUpdate,
+  WebhookContext,
   WhatsAppCredentials,
 } from "./messaging.port";
 
@@ -27,8 +30,25 @@ export class MessagingService {
     private readonly prisma: PrismaService,
     private readonly assignmentEngine: AssignmentEngineService,
     private readonly realtime: RealtimeGateway,
-    private readonly adapter: WhatsAppCloudAdapter
+    private readonly cloudAdapter: WhatsAppCloudAdapter,
+    private readonly twilioAdapter: TwilioWhatsAppAdapter
   ) {}
+
+  /**
+   * Which provider a workspace is connected to is data, not code: the
+   * credentials blob carries the choice, so switching provider is a settings
+   * change rather than a deploy.
+   */
+  adapterFor(connection: { credentials: Prisma.JsonValue }): MessagingPort {
+    const c = (connection.credentials ?? {}) as Record<string, string>;
+    return c.provider === "TWILIO_WHATSAPP" ? this.twilioAdapter : this.cloudAdapter;
+  }
+
+  /** The secret each provider signs its webhooks with. */
+  signingSecretFor(connection: { credentials: Prisma.JsonValue }): string {
+    const c = (connection.credentials ?? {}) as Record<string, string>;
+    return c.provider === "TWILIO_WHATSAPP" ? (c.authToken ?? "") : (c.appSecret ?? "");
+  }
 
   // ---------------------------------------------------------------- connection
 
@@ -53,12 +73,12 @@ export class MessagingService {
     };
   }
 
-  verifySignature(rawBody: Buffer, headers: Record<string, unknown>, appSecret: string) {
-    return this.adapter.verifySignature(rawBody, headers, appSecret);
+  verifySignature(connection: { credentials: Prisma.JsonValue }, ctx: WebhookContext) {
+    return this.adapterFor(connection).verifySignature(ctx, this.signingSecretFor(connection));
   }
 
-  parseWebhook(payload: unknown) {
-    return this.adapter.parseWebhook(payload);
+  parseWebhook(connection: { credentials: Prisma.JsonValue }, ctx: WebhookContext) {
+    return this.adapterFor(connection).parseWebhook(ctx);
   }
 
   /** Records an integration event, ignoring a replayed provider event id (I5.4, I1.8). */
@@ -139,6 +159,47 @@ export class MessagingService {
       reference: actor.actorLabel,
     });
 
+    return connection;
+  }
+
+  /** Connects the Twilio WhatsApp sandbox for this workspace. */
+  async connectTwilio(
+    workspaceId: string,
+    creds: { accountSid: string; authToken: string; whatsappFrom?: string },
+    actor: { userId: string; actorLabel: string }
+  ) {
+    if (!creds.accountSid || !creds.authToken) {
+      throw new BadRequestException("Account SID and Auth Token are both required.");
+    }
+
+    const credentials = {
+      provider: "TWILIO_WHATSAPP",
+      accountSid: creds.accountSid,
+      authToken: creds.authToken,
+      whatsappFrom: creds.whatsappFrom || "whatsapp:+14155238886",
+    };
+
+    const connection = await this.prisma.integrationConnection.upsert({
+      where: { workspaceId_provider: { workspaceId, provider: "WHATSAPP_CLOUD" } },
+      create: {
+        workspaceId,
+        provider: "WHATSAPP_CLOUD",
+        status: "CONNECTED",
+        credentials: credentials as unknown as Prisma.InputJsonValue,
+      },
+      update: {
+        status: "CONNECTED",
+        lastError: null,
+        credentials: credentials as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    await this.recordEvent({
+      workspaceId,
+      direction: "OUTBOUND",
+      eventType: "integration.connected",
+      reference: `twilio:${actor.actorLabel}`,
+    });
     return connection;
   }
 
@@ -331,10 +392,10 @@ export class MessagingService {
     });
 
     try {
-      const result = await this.adapter.sendText({
+      const result = await this.adapterFor(connection).sendText({
         toPhone: conversation.contact.phone ?? "",
         body,
-        credentials: this.credentialsOf(connection),
+        credentials: (connection.credentials ?? {}) as Record<string, string>,
       });
 
       const sent = await this.prisma.message.update({
