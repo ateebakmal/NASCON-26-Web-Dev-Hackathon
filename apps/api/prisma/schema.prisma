@@ -34,6 +34,7 @@ model Workspace {
   customFields     CustomFieldDefinition[]
   payments         Payment[]
   appointments     Appointment[]
+  savedLists       SavedList[]
 }
 
 enum BaseRole {
@@ -646,4 +647,25 @@ model IntegrationEvent {
 
   @@unique([workspaceId, provider, providerEventId])
   @@index([workspaceId, provider, createdAt])
+}
+
+/// F2.6: a saved list stores its FILTER, never a snapshot of matching ids,
+/// so it updates automatically as records start or stop matching.
+model SavedList {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name       String
+  recordType String // "DEAL" | "CONTACT"
+  /// Array of { field, operator, value } evaluated with AND.
+  filters    Json
+  /// Private to its creator unless shared with the workspace.
+  isShared   Boolean  @default(true)
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, recordType])
 }

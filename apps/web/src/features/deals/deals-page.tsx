@@ -29,6 +29,7 @@ import { DealCard, formatValue } from "./deal-card";
 import { RequiredFieldsDialog } from "./required-fields-dialog";
 import { AddDealDialog } from "./add-deal-dialog";
 import { DealDrawer } from "./deal-drawer";
+import { SavedListsBar } from "./saved-lists";
 import type { Deal, RequiredFieldsError, Stage } from "./types";
 
 const STAGE_PILL: Record<string, string> = {
@@ -48,6 +49,10 @@ export function DealsPage() {
   >(null);
   const [toast, setToast] = React.useState<string | null>(null);
   const [openDeal, setOpenDeal] = React.useState<Deal | null>(null);
+  // When a saved list is applied the board shows its results instead of the
+  // full pipeline; null means "no filter, show everything".
+  const [filtered, setFiltered] = React.useState<Deal[] | null>(null);
+  const [filterLabel, setFilterLabel] = React.useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -80,13 +85,22 @@ export function DealsPage() {
     [data?.pipeline.id]
   );
 
+  const visibleDeals = filtered ?? data?.opportunities ?? [];
+
   const dealsByStage = React.useMemo(() => {
     const map = new Map<string, Deal[]>();
     for (const stage of data?.stages ?? []) map.set(stage.id, []);
-    for (const deal of data?.opportunities ?? []) {
-      map.get(deal.stageId)?.push(deal);
-    }
+    for (const deal of visibleDeals) map.get(deal.stageId)?.push(deal);
     return map;
+  }, [data, visibleDeals]);
+
+  // Owners available as a filter criterion, derived from the board itself.
+  const owners = React.useMemo(() => {
+    const seen = new Map<string, { id: string; name: string }>();
+    for (const d of data?.opportunities ?? []) {
+      if (d.owner) seen.set(d.owner.id, d.owner);
+    }
+    return Array.from(seen.values());
   }, [data]);
 
   const onDragStart = (e: DragStartEvent) => {
@@ -160,6 +174,23 @@ export function DealsPage() {
 
   return (
     <>
+      <div className="mb-4">
+        <SavedListsBar
+          stages={data.stages}
+          owners={owners}
+          onResults={(deals, label) => {
+            setFiltered(deals);
+            setFilterLabel(label);
+          }}
+        />
+        {filterLabel && (
+          <p className="mt-2 text-sm text-text-muted">
+            Showing <span className="font-medium text-text">{filterLabel}</span> — the list
+            re-runs its filter each time, so it stays current.
+          </p>
+        )}
+      </div>
+
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-slim">
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
           {data.stages.map((stage) => (

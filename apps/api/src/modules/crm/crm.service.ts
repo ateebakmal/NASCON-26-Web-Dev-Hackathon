@@ -27,14 +27,28 @@ export class CrmService {
   // ----------------------------------------------------------------- pipelines
 
   async listPipelines(workspaceId: string) {
-    return this.prisma.pipeline.findMany({
-      where: { workspaceId },
-      orderBy: { position: "asc" },
-      include: {
-        stages: { orderBy: { position: "asc" } },
-        customFields: { where: { archivedAt: null }, orderBy: { position: "asc" } },
-      },
-    });
+    const [pipelines, dealFields] = await Promise.all([
+      this.prisma.pipeline.findMany({
+        where: { workspaceId },
+        orderBy: { position: "asc" },
+        include: { stages: { orderBy: { position: "asc" } } },
+      }),
+      this.prisma.customFieldDefinition.findMany({
+        where: { workspaceId, recordType: "DEAL", archivedAt: null },
+        orderBy: { position: "asc" },
+      }),
+    ]);
+
+    // A field with pipelineId null applies to EVERY pipeline, so it cannot
+    // come from the Prisma relation (which only matches an exact id) -- it
+    // has to be merged in, or workspace-wide fields would be invisible in
+    // settings and could never be marked required on a stage.
+    return pipelines.map((pipeline) => ({
+      ...pipeline,
+      customFields: dealFields.filter(
+        (f) => f.pipelineId === null || f.pipelineId === pipeline.id
+      ),
+    }));
   }
 
   async getBoard(workspaceId: string, pipelineId?: string) {
