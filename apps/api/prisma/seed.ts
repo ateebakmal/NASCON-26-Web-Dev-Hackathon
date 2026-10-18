@@ -482,6 +482,31 @@ async function main() {
     }
   }
 
+  // Restore the messaging connection with a STABLE webhook key, so resetting
+  // the database never invalidates the URL already pasted into Twilio's or
+  // Meta's console.
+  const webhookKey = process.env.WHATSAPP_WEBHOOK_KEY || "relay-sunpeak-whatsapp";
+  const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+  const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+
+  if (twilioSid && twilioToken) {
+    await prisma.integrationConnection.create({
+      data: {
+        workspaceId: workspace.id,
+        provider: "WHATSAPP_CLOUD",
+        status: "CONNECTED",
+        webhookKey,
+        credentials: {
+          provider: "TWILIO_WHATSAPP",
+          accountSid: twilioSid,
+          authToken: twilioToken,
+          whatsappFrom: process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886",
+        },
+      },
+    });
+    console.log(`  WhatsApp: Twilio connected, webhook key '${webhookKey}'`);
+  }
+
   console.log(`Seeded '${WORKSPACE_NAME}' (password: password123)`);
   console.log(`  Owner:    ${owner.email}`);
   console.log(`  Admin:    ${admin.email}`);
