@@ -1,9 +1,17 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { Loader2, Search } from "lucide-react";
+import { ExternalLink, Loader2, Search } from "lucide-react";
 import { Card } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../../components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -13,10 +21,12 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { useContacts } from "./api";
+import { useContacts, type ContactRow } from "./api";
+import { ContactDetailView } from "./contact-detail-view";
 
 export function ContactsPage() {
   const [search, setSearch] = React.useState("");
+  const [selected, setSelected] = React.useState<ContactRow | null>(null);
   const { data, isLoading, isError } = useContacts(search);
 
   return (
@@ -74,14 +84,25 @@ export function ContactsPage() {
             {!isLoading &&
               !isError &&
               data?.items.map((c) => (
-                <TableRow key={c.id}>
+                // The whole row opens the detail drawer. It's a real button
+                // for keyboard and screen-reader users rather than a row with
+                // a click handler bolted on.
+                <TableRow
+                  key={c.id}
+                  className="cursor-pointer"
+                  onClick={() => setSelected(c)}
+                  data-state={selected?.id === c.id ? "selected" : undefined}
+                >
                   <TableCell>
-                    <Link
-                      to={`/contacts/${c.id}`}
-                      className="font-medium text-text hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelected(c);
+                      }}
+                      className="text-left font-medium text-text hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       {c.name}
-                    </Link>
+                    </button>
                     <p className="text-sm text-text-muted">{c.email ?? "—"}</p>
                   </TableCell>
                   <TableCell className="text-text-muted">{c.company?.name ?? "—"}</TableCell>
@@ -100,6 +121,29 @@ export function ContactsPage() {
           </TableBody>
         </Table>
       </Card>
+
+      <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
+        <SheetContent side="right">
+          <SheetHeader>
+            <SheetTitle>{selected?.name}</SheetTitle>
+            <SheetDescription>
+              {selected?.company?.name ?? "No company"} · {selected?.phone ?? "—"}
+            </SheetDescription>
+            {selected && (
+              <Link
+                to={`/contacts/${selected.id}`}
+                className="mt-1 flex w-fit items-center gap-1.5 text-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Open full page
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            )}
+          </SheetHeader>
+          <SheetBody>
+            <ContactDetailView contactId={selected?.id} />
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
