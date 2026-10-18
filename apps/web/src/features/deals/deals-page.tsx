@@ -18,7 +18,6 @@ import {
   List,
   Loader2,
   MoreHorizontal,
-  Sparkles,
   Table2,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -54,10 +53,6 @@ export function DealsPage() {
 
   useToolbar(
     <div className="flex flex-wrap items-center gap-2">
-      <Button variant="primary" size="sm" className="gap-1.5">
-        <Sparkles className="h-4 w-4" aria-hidden="true" />
-        Ask AI
-      </Button>
       <Button variant="secondary" size="sm" className="gap-1.5">
         <Filter className="h-4 w-4" aria-hidden="true" />
         Filter
