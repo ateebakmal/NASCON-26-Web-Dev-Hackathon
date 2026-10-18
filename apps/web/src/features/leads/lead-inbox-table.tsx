@@ -1,6 +1,15 @@
 import { Loader2 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
 import { EscalationCountdownBadge } from "./escalation-countdown-badge";
 import { useAcknowledgeLead } from "./api";
 import { useAuth } from "../../app/auth-context";
@@ -19,64 +28,76 @@ export function LeadInboxTable({ leads, isLoading }: { leads: Lead[] | undefined
   const { user } = useAuth();
   const acknowledge = useAcknowledgeLead();
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 py-8 text-text-muted">
-        <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-        Loading leads…
-      </div>
-    );
-  }
-
-  if (!leads || leads.length === 0) {
-    return <p className="py-8 text-sm text-text-muted">No leads yet — add one above to see the assignment engine run.</p>;
-  }
-
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-text-muted">
-            <th className="py-2 pr-4 font-medium">Lead</th>
-            <th className="py-2 pr-4 font-medium">Status</th>
-            <th className="py-2 pr-4 font-medium">Owner</th>
-            <th className="py-2 pr-4 font-medium">Escalation</th>
-            <th className="py-2 pr-4 font-medium">Timer</th>
-            <th className="py-2 pr-4 font-medium" />
-          </tr>
-        </thead>
-        <tbody>
-          {leads.map((lead) => {
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead>Lead</TableHead>
+          <TableHead>Source</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Owner</TableHead>
+          <TableHead>Escalations</TableHead>
+          <TableHead>Timer</TableHead>
+          <TableHead className="text-right">Action</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {isLoading && (
+          <TableEmpty colSpan={7}>
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              Loading leads…
+            </span>
+          </TableEmpty>
+        )}
+
+        {!isLoading && (!leads || leads.length === 0) && (
+          <TableEmpty colSpan={7}>
+            No leads yet — add one above to watch the assignment engine run.
+          </TableEmpty>
+        )}
+
+        {!isLoading &&
+          leads?.map((lead) => {
             const activeAssignment = lead.assignments[0];
             const isMine = activeAssignment?.assigneeId === user?.id;
             const canAck = isMine && !activeAssignment?.ackAt && !activeAssignment?.endedAt;
 
             return (
-              <tr key={lead.id} className="border-b border-border">
-                <td className="py-3 pr-4">
+              <TableRow key={lead.id}>
+                <TableCell>
                   <p className="font-medium text-text">{lead.name}</p>
-                  <p className="text-xs text-text-muted">{lead.phone ?? lead.email ?? "—"}</p>
-                </td>
-                <td className="py-3 pr-4">
+                  <p className="text-sm text-text-muted">{lead.phone ?? lead.email ?? "—"}</p>
+                </TableCell>
+                <TableCell>
+                  <Badge>{lead.source}</Badge>
+                </TableCell>
+                <TableCell>
                   <Badge variant={STATUS_VARIANT[lead.status]}>{lead.status}</Badge>
-                </td>
-                <td className="py-3 pr-4 text-text-muted">{activeAssignment?.assignee.name ?? "Unassigned"}</td>
-                <td className="py-3 pr-4 text-text-muted">{lead.escalationCount}×</td>
-                <td className="py-3 pr-4">
+                </TableCell>
+                <TableCell className="text-text-muted">
+                  {activeAssignment?.assignee.name ?? "Unassigned"}
+                </TableCell>
+                <TableCell className="text-text-muted">{lead.escalationCount}×</TableCell>
+                <TableCell>
                   <EscalationCountdownBadge job={activeAssignment?.escalationJobs?.[0]} />
-                </td>
-                <td className="py-3 pr-4 text-right">
+                </TableCell>
+                <TableCell className="text-right">
                   {canAck && (
-                    <Button size="sm" variant="secondary" loading={acknowledge.isPending} onClick={() => acknowledge.mutate(lead.id)}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={acknowledge.isPending}
+                      onClick={() => acknowledge.mutate(lead.id)}
+                    >
                       Acknowledge
                     </Button>
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </div>
+      </TableBody>
+    </Table>
   );
 }

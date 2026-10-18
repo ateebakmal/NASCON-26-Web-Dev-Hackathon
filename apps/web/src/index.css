@@ -22,7 +22,8 @@
     color-scheme: light;
   }
   body {
-    @apply bg-page text-text font-sans antialiased;
+    /* surface, not page, so no grey frame shows around the app shell */
+    @apply bg-surface text-text font-sans antialiased;
   }
   ::selection {
     @apply bg-primary/20;

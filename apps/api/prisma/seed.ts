@@ -454,6 +454,32 @@ async function main() {
     }
   }
 
+  // Backdated escalation history so the dashboard's 7-day chart shows a
+  // trend rather than a single spike on seed day.
+  const escalationsPerDay = [4, 2, 5, 3, 6, 2];
+  const historyLead = await prisma.lead.findFirst({ where: { workspaceId: workspace.id } });
+  if (historyLead) {
+    for (let dayOffset = 6; dayOffset >= 1; dayOffset--) {
+      const count = escalationsPerDay[6 - dayOffset];
+      for (let i = 0; i < count; i++) {
+        const createdAt = new Date();
+        createdAt.setDate(createdAt.getDate() - dayOffset);
+        createdAt.setHours(9 + (i % 8), (i * 7) % 60, 0, 0);
+        await prisma.auditLog.create({
+          data: {
+            workspaceId: workspace.id,
+            actorLabel: "system:escalation",
+            eventType: "lead.escalated",
+            targetType: "Lead",
+            targetId: historyLead.id,
+            createdAt,
+            after: { escalationLevel: (i % 3) + 1 },
+          },
+        });
+      }
+    }
+  }
+
   console.log(`Seeded '${WORKSPACE_NAME}' (password: password123)`);
   console.log(`  Owner:    ${owner.email}`);
   console.log(`  Admin:    ${admin.email}`);

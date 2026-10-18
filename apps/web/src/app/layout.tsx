@@ -75,8 +75,8 @@ export function Layout() {
     .join("");
 
   return (
-    <div className="flex min-h-screen bg-page p-0 md:p-3">
-      <div className="flex w-full overflow-hidden rounded-none border-border bg-surface md:rounded-xl md:border md:shadow-card">
+    <div className="flex min-h-screen bg-surface">
+      <div className="flex w-full overflow-hidden bg-surface">
         {/* ---------------------------------------------------------- sidebar */}
         <aside
           className={cn(

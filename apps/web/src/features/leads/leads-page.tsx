@@ -23,19 +23,18 @@ export function LeadsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b border-border">
           <CardTitle>Inbox</CardTitle>
+          <CardDescription>Sorted newest first. New leads appear live.</CardDescription>
         </CardHeader>
-        <CardContent>
-          {isError ? (
-            <p role="alert" className="py-4 text-sm text-danger">
-              Could not load leads. Retrying…
-            </p>
-          ) : (
-            <LeadInboxTable leads={data?.items} isLoading={isLoading} />
-          )}
-        </CardContent>
+        {isError ? (
+          <p role="alert" className="p-5 text-base text-danger">
+            Could not load leads. Retrying…
+          </p>
+        ) : (
+          <LeadInboxTable leads={data?.items} isLoading={isLoading} />
+        )}
       </Card>
     </div>
   );

@@ -17,9 +17,12 @@ export interface LeadAssignment {
   escalationJobs?: EscalationJob[];
 }
 
+export type LeadSource = "WEB_FORM" | "WHATSAPP" | "MANUAL";
+
 export interface Lead {
   id: string;
   name: string;
+  source: LeadSource;
   phone: string | null;
   email: string | null;
   notes: string | null;

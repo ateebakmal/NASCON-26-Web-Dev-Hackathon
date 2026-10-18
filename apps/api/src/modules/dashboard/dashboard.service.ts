@@ -9,6 +9,11 @@ import { ESCALATED_REPEATEDLY_THRESHOLD } from "@ubp/shared";
  * `scopeUserId` is set for a plain User so they see personal figures, and left
  * undefined for Owner/Admin who see company-wide ones (F5.4).
  */
+/** Local-calendar day key (YYYY-MM-DD), never UTC-shifted. */
+function localDayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
@@ -167,7 +172,7 @@ export class DashboardService {
     return Array.from(buckets.entries()).map(([month, value]) => ({ month, value }));
   }
 
-  /** Escalations per day for the last 7 days. */
+  /** Escalations per day for the last 7 days, bucketed in the server's local day. */
   private async escalationSeries(workspaceId: string) {
     const since = new Date();
     since.setDate(since.getDate() - 6);
@@ -178,14 +183,18 @@ export class DashboardService {
       select: { createdAt: true },
     });
 
+    // Both the buckets and the rows must be keyed the same way. Using
+    // toISOString() here would format a LOCAL midnight as a UTC instant,
+    // shifting every key back a day east of Greenwich and silently dropping
+    // today's escalations.
     const buckets = new Map<string, number>();
     for (let i = 0; i < 7; i++) {
       const d = new Date(since);
       d.setDate(since.getDate() + i);
-      buckets.set(d.toISOString().slice(0, 10), 0);
+      buckets.set(localDayKey(d), 0);
     }
     for (const r of rows) {
-      const key = r.createdAt.toISOString().slice(0, 10);
+      const key = localDayKey(r.createdAt);
       if (buckets.has(key)) buckets.set(key, buckets.get(key)! + 1);
     }
     return Array.from(buckets.entries()).map(([day, count]) => ({ day, count }));
