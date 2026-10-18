@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { AppController } from "./app.controller";
 import { ScheduleModule } from "@nestjs/schedule";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 
 import { PrismaModule } from "./prisma/prisma.module";
 import { RedisModule } from "./queue/redis.module";
@@ -15,9 +15,12 @@ import { UsersModule } from "./modules/users/users.module";
 import { EmployeeStatusModule } from "./modules/employee-status/employee-status.module";
 import { AssignmentEngineModule } from "./modules/assignment-engine/assignment-engine.module";
 import { LeadsModule } from "./modules/leads/leads.module";
+import { CrmModule } from "./modules/crm/crm.module";
+import { DashboardModule } from "./modules/dashboard/dashboard.module";
 
 import { SessionAuthGuard } from "./common/guards/session-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
+import { FieldMaskInterceptor } from "./common/interceptors/field-mask.interceptor";
 
 @Module({
   imports: [
@@ -34,6 +37,8 @@ import { PermissionsGuard } from "./common/guards/permissions.guard";
     EmployeeStatusModule,
     AssignmentEngineModule,
     LeadsModule,
+    CrmModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
@@ -42,6 +47,10 @@ import { PermissionsGuard } from "./common/guards/permissions.guard";
     // those fields to authorize). Both fail closed by default.
     { provide: APP_GUARD, useClass: SessionAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    // Field-level masking runs on every response that declares @MaskFields,
+    // so a restricted user never receives a value they may not see -- not
+    // even by calling the API directly (F1.4, F1.5).
+    { provide: APP_INTERCEPTOR, useClass: FieldMaskInterceptor },
   ],
 })
 export class AppModule {}

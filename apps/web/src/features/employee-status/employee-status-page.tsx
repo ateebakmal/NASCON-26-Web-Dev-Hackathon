@@ -15,7 +15,7 @@ export function EmployeeStatusPage() {
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold text-text">Employees</h1>
-        <p className="text-sm text-text/60">
+        <p className="text-sm text-text-muted">
           Setting your status to On leave or Offline immediately reassigns any unacknowledged leads you're holding.
         </p>
       </div>
@@ -32,7 +32,7 @@ export function EmployeeStatusPage() {
               onChange={(next: Availability) => setMine.mutate(next)}
             />
           ) : (
-            <p className="text-sm text-text/60">—</p>
+            <p className="text-sm text-text-muted">—</p>
           )}
         </CardContent>
       </Card>
@@ -44,7 +44,7 @@ export function EmployeeStatusPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center gap-2 py-8 text-text/60">
+            <div className="flex items-center gap-2 py-8 text-text-muted">
               <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               Loading…
             </div>
@@ -53,11 +53,11 @@ export function EmployeeStatusPage() {
               Could not load team status.
             </p>
           ) : (
-            <ul className="flex flex-col divide-y divide-white/5">
+            <ul className="flex flex-col divide-y divide-border">
               {data?.map((row) => (
                 <li key={row.id} className="flex items-center justify-between py-2 text-sm">
                   <span className="text-text">{row.user.name}</span>
-                  <span className="text-text/60">
+                  <span className="text-text-muted">
                     {row.availability} · cap {row.maxOpenLeads}
                   </span>
                 </li>

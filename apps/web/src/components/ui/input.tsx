@@ -10,11 +10,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     <input
       ref={ref}
       className={cn(
-        "flex min-h-[44px] w-full rounded-md border bg-white/5 px-3 py-2 text-sm text-text placeholder:text-text/40",
+        "flex min-h-[40px] w-full rounded-md border bg-surface px-3 py-2 text-base text-text placeholder:text-text-muted/70",
         "transition-colors motion-reduce:transition-none",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        error ? "border-danger" : "border-white/10",
+        error ? "border-danger" : "border-border",
         className
       )}
       aria-invalid={error || undefined}
@@ -23,3 +23,22 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   )
 );
 Input.displayName = "Input";
+
+export const Select = React.forwardRef<
+  HTMLSelectElement,
+  React.SelectHTMLAttributes<HTMLSelectElement> & { error?: boolean }
+>(({ className, error, ...props }, ref) => (
+  <select
+    ref={ref}
+    className={cn(
+      "flex min-h-[40px] w-full rounded-md border bg-surface px-3 py-2 text-base text-text",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+      "disabled:cursor-not-allowed disabled:opacity-50",
+      error ? "border-danger" : "border-border",
+      className
+    )}
+    aria-invalid={error || undefined}
+    {...props}
+  />
+));
+Select.displayName = "Select";

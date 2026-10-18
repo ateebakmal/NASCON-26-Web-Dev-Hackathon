@@ -32,7 +32,7 @@ export function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="flex flex-col gap-3" noValidate>
-            <label className="flex flex-col gap-1 text-sm text-text/70">
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
               Email
               <Input
                 type="email"
@@ -42,7 +42,7 @@ export function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-text/70">
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
               Password
               <Input
                 type="password"
@@ -61,7 +61,7 @@ export function LoginPage() {
               Sign in
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm text-text/60">
+          <p className="mt-4 text-center text-sm text-text-muted">
             New company?{" "}
             <Link to="/signup" className="text-primary underline-offset-2 hover:underline">
               Create a workspace

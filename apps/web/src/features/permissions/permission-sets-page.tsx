@@ -16,13 +16,13 @@ export function PermissionSetsPage() {
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold text-text">Permission Sets</h1>
-        <p className="text-sm text-text/60">
+        <p className="text-sm text-text-muted">
           Every set here, including "Manager", is an ordinary editable bundle of permissions.
         </p>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center gap-2 py-8 text-text/60">
+        <div className="flex items-center gap-2 py-8 text-text-muted">
           <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
           Loading…
         </div>
@@ -70,15 +70,15 @@ function PermissionSetCard({ set }: { set: PermissionSetRow }) {
       </CardHeader>
       <CardContent>
         {set.isSystem ? (
-          <p className="text-sm text-text/50">The Owner's full-access set always bypasses permission checks and cannot be edited.</p>
+          <p className="text-sm text-text-muted">The Owner's full-access set always bypasses permission checks and cannot be edited.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-[640px] border-collapse text-xs">
               <thead>
                 <tr>
-                  <th className="py-1 pr-3 text-left font-medium text-text/50">Resource</th>
+                  <th className="py-1 pr-3 text-left font-medium text-text-muted">Resource</th>
                   {ACTIONS.map((action) => (
-                    <th key={action} className="px-2 py-1 text-center font-medium text-text/50">
+                    <th key={action} className="px-2 py-1 text-center font-medium text-text-muted">
                       {action}
                     </th>
                   ))}
@@ -86,8 +86,8 @@ function PermissionSetCard({ set }: { set: PermissionSetRow }) {
               </thead>
               <tbody>
                 {RESOURCES.map((resource) => (
-                  <tr key={resource} className="border-t border-white/5">
-                    <td className="py-1.5 pr-3 text-text/80">{resource}</td>
+                  <tr key={resource} className="border-t border-border">
+                    <td className="py-1.5 pr-3 text-text-muted">{resource}</td>
                     {ACTIONS.map((action) => {
                       const key = `${resource}:${action}`;
                       const checked = granted.has(key);

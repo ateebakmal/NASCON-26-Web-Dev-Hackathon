@@ -10,7 +10,7 @@ export function LeadsPage() {
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold text-text">Leads</h1>
-        <p className="text-sm text-text/60">Every lead has exactly one accountable owner at all times.</p>
+        <p className="text-sm text-text-muted">Every lead has exactly one accountable owner at all times.</p>
       </div>
 
       <Card>

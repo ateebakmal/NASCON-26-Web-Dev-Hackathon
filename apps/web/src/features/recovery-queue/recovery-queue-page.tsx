@@ -23,7 +23,7 @@ export function RecoveryQueuePage() {
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold text-text">Recovery Queue</h1>
-        <p className="text-sm text-text/60">
+        <p className="text-sm text-text-muted">
           Leads unacknowledged past their window, escalated twice or more, or idle past the configured period.
         </p>
       </div>
@@ -35,7 +35,7 @@ export function RecoveryQueuePage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center gap-2 py-8 text-text/60">
+            <div className="flex items-center gap-2 py-8 text-text-muted">
               <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               Loading…
             </div>
@@ -44,17 +44,17 @@ export function RecoveryQueuePage() {
               Could not load the recovery queue.
             </p>
           ) : !data || data.length === 0 ? (
-            <p className="py-8 text-sm text-text/60">Recovery queue is clear.</p>
+            <p className="py-8 text-sm text-text-muted">Recovery queue is clear.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {data.map(({ lead, reason }) => (
                 <li
                   key={lead.id}
-                  className="flex flex-col gap-2 rounded-sm border border-white/10 bg-white/5 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-sm border border-border bg-muted p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
                     <p className="font-medium text-text">{lead.name}</p>
-                    <p className="text-xs text-text/50">{lead.phone ?? lead.email ?? "—"}</p>
+                    <p className="text-xs text-text-muted">{lead.phone ?? lead.email ?? "—"}</p>
                   </div>
                   <Badge variant={REASON_VARIANT[reason]}>{REASON_LABEL[reason]}</Badge>
                 </li>

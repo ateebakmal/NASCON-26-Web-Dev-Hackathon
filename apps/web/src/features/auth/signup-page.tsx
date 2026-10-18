@@ -36,19 +36,19 @@ export function SignupPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="flex flex-col gap-3" noValidate>
-            <label className="flex flex-col gap-1 text-sm text-text/70">
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
               Company / workspace name
               <Input required minLength={2} value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-text/70">
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
               Your name
               <Input required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-text/70">
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
               Email
               <Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-text/70">
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
               Password
               <Input
                 type="password"
@@ -68,7 +68,7 @@ export function SignupPage() {
               Create workspace
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm text-text/60">
+          <p className="mt-4 text-center text-sm text-text-muted">
             Already have an account?{" "}
             <Link to="/login" className="text-primary underline-offset-2 hover:underline">
               Sign in

@@ -1,25 +1,45 @@
-@import "@fontsource/ibm-plex-sans/400.css";
-@import "@fontsource/ibm-plex-sans/500.css";
-@import "@fontsource/ibm-plex-sans/600.css";
-@import "@fontsource/ibm-plex-sans/700.css";
-
-@import "./design-system/tokens.css";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-primary: 37 99 235; /* #2563EB */
+  --color-primary-soft: 219 234 254;
+  --color-success: 16 185 129;
+  --color-warning: 245 158 11;
+  --color-danger: 239 68 68;
+
+  --color-page: 241 243 247; /* app background behind the shell */
+  --color-surface: 255 255 255; /* cards, panels, sidebar */
+  --color-muted: 248 249 251; /* subtle fills, hover rows */
+  --color-border: 232 234 239;
+  --color-text: 15 18 25;
+  --color-text-muted: 109 117 133;
+}
+
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
   body {
-    @apply bg-surface text-text font-sans antialiased;
-    background-image: radial-gradient(circle at top left, rgb(var(--color-primary) / 0.08), transparent 45%);
-    background-attachment: fixed;
+    @apply bg-page text-text font-sans antialiased;
   }
   ::selection {
-    @apply bg-primary/30;
+    @apply bg-primary/20;
+  }
+}
+
+@layer utilities {
+  /* Thin scrollbars inside board columns and panels. */
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-border;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 

@@ -3,22 +3,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
-// Shared interaction-state baseline (focus-visible ring, 44px min tap
-// target, reduced-motion) applied once here so every button variant
-// inherits it, per the Enterprise design skill's component-state rules.
+// Shared interaction-state baseline (focus-visible ring, 40px min tap target,
+// reduced-motion) applied once so every variant inherits it.
 const buttonVariants = cva(
-  "inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
   {
     variants: {
       variant: {
-        primary: "bg-primary text-white hover:bg-secondary",
-        secondary: "bg-white/10 text-text hover:bg-white/15 border border-white/10",
-        ghost: "text-text hover:bg-white/10",
+        primary: "bg-primary text-white hover:bg-primary/90 shadow-sm",
+        dark: "bg-text text-white hover:bg-text/90 shadow-sm",
+        secondary: "bg-surface text-text border border-border hover:bg-muted",
+        ghost: "text-text-muted hover:bg-muted hover:text-text",
         danger: "bg-danger text-white hover:bg-danger/90",
       },
       size: {
-        default: "px-4 py-2",
-        sm: "px-3 py-1.5 text-xs min-h-[36px]",
+        default: "min-h-[40px] px-4 text-base",
+        sm: "min-h-[34px] px-3 text-sm",
+        icon: "h-10 w-10",
       },
     },
     defaultVariants: { variant: "primary", size: "default" },

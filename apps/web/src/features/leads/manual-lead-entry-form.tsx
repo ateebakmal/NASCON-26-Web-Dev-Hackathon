@@ -39,15 +39,15 @@ export function ManualLeadEntryForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap" noValidate>
-      <label className="flex flex-1 min-w-[160px] flex-col gap-1 text-sm text-text/70">
+      <label className="flex flex-1 min-w-[160px] flex-col gap-1 text-sm text-text-muted">
         Name
         <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Prospect" />
       </label>
-      <label className="flex flex-1 min-w-[160px] flex-col gap-1 text-sm text-text/70">
+      <label className="flex flex-1 min-w-[160px] flex-col gap-1 text-sm text-text-muted">
         Phone
         <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 555 123 4567" />
       </label>
-      <label className="flex flex-1 min-w-[160px] flex-col gap-1 text-sm text-text/70">
+      <label className="flex flex-1 min-w-[160px] flex-col gap-1 text-sm text-text-muted">
         Email
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@example.com" />
       </label>

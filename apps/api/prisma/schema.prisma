@@ -23,6 +23,13 @@ model Workspace {
   auditLogs        AuditLog[]
   assignmentRules  AssignmentRule[]
   employeeStatuses EmployeeStatus[]
+  companies        Company[]
+  contacts         Contact[]
+  pipelines        Pipeline[]
+  opportunities    Opportunity[]
+  customFields     CustomFieldDefinition[]
+  payments         Payment[]
+  appointments     Appointment[]
 }
 
 enum BaseRole {
@@ -51,6 +58,7 @@ model User {
   sessions          Session[]
   employeeStatus    EmployeeStatus?
   leadAssignments   LeadAssignment[]
+  opportunities     Opportunity[]
 
   @@unique([workspaceId, email])
   @@index([workspaceId])
@@ -190,6 +198,10 @@ model Lead {
   escalationCount Int       @default(0)
   lockVersion     Int       @default(0)
 
+  // Set when the lead is converted into a deal (F2 / journey step 4).
+  convertedOpportunityId String?
+  convertedOpportunity   Opportunity? @relation(fields: [convertedOpportunityId], references: [id], onDelete: SetNull)
+
   assignments    LeadAssignment[]
   escalationJobs EscalationJob[]
 
@@ -267,4 +279,225 @@ model AuditLog {
 
   @@index([workspaceId, eventType, createdAt])
   @@index([workspaceId, targetType, targetId])
+}
+
+// ============================================================================
+// F2: Customizable CRM -- companies, contacts, pipelines, stages, deals
+// ============================================================================
+
+model Company {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name      String
+  domain    String?
+  logoUrl   String?
+  createdAt DateTime @default(now())
+
+  contacts Contact[]
+
+  @@index([workspaceId])
+}
+
+model Contact {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name      String
+  email     String?
+  phone     String?
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  tags     String[] @default([])
+  optedOut Boolean  @default(false)
+  // Custom field values keyed by CustomFieldDefinition.key. JSONB rather than
+  // an EAV table: one row per record keeps reads simple and the definitions
+  // table still drives validation and rendering.
+  customFields Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  opportunities Opportunity[]
+  appointments  Appointment[]
+
+  @@index([workspaceId])
+  @@index([workspaceId, phone])
+  @@index([workspaceId, email])
+}
+
+model Pipeline {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name      String
+  isDefault Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  stages        Stage[]
+  opportunities Opportunity[]
+  customFields  CustomFieldDefinition[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+enum StageType {
+  OPEN
+  WON
+  LOST
+}
+
+model Stage {
+  id         String   @id @default(cuid())
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  name     String
+  position Int
+  type     StageType @default(OPEN)
+  color    String    @default("slate")
+  // Keys of CustomFieldDefinition rows a deal must have filled before it can
+  // enter this stage (F2.4).
+  requiredFieldKeys String[] @default([])
+
+  opportunities Opportunity[]
+
+  @@index([pipelineId, position])
+}
+
+model Opportunity {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name     String
+  value    Decimal  @default(0) @db.Decimal(14, 2)
+  currency String   @default("PKR")
+  tag      String?
+
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  stageId    String
+  stage      Stage    @relation(fields: [stageId], references: [id])
+  ownerId    String?
+  owner      User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  customFields Json     @default("{}")
+  // Optimistic-concurrency guard: a stale update is rejected rather than
+  // silently overwriting a concurrent edit (Q4).
+  version      Int      @default(0)
+  closedAt     DateTime?
+  expectedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  payments     Payment[]
+  appointments Appointment[]
+  leads        Lead[]
+
+  @@index([workspaceId, stageId])
+  @@index([workspaceId, pipelineId])
+  @@index([workspaceId, ownerId])
+  @@index([contactId])
+}
+
+enum CustomFieldRecordType {
+  CONTACT
+  COMPANY
+  DEAL
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  DROPDOWN
+  CHECKBOX
+}
+
+model CustomFieldDefinition {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  recordType CustomFieldRecordType
+  // null means the field applies to every pipeline; set means it is specific
+  // to one pipeline, which is what makes F2.3 work.
+  pipelineId String?
+  pipeline   Pipeline? @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  key     String
+  label   String
+  type    CustomFieldType
+  options String[] @default([])
+  // Deleting a field archives it: hidden everywhere, data kept, restorable (A2.5).
+  archivedAt DateTime?
+  position   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@unique([workspaceId, recordType, pipelineId, key])
+  @@index([workspaceId, recordType])
+}
+
+// ============================================================================
+// Payments and appointments -- records exist now so the CRM and dashboard can
+// read them; the Stripe/Google integrations that populate them land later.
+// ============================================================================
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  amount      Decimal       @db.Decimal(14, 2)
+  currency    String        @default("PKR")
+  status      PaymentStatus @default(PENDING)
+  provider    String        @default("stripe")
+  providerRef String?
+  requestedBy String?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@index([workspaceId, status])
+  @@index([opportunityId])
+}
+
+model Appointment {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  contactId     String?
+  contact       Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  title       String
+  startsAt    DateTime
+  endsAt      DateTime
+  timeZone    String  @default("Asia/Karachi")
+  googleEventId String?
+  ownerId     String?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, startsAt])
 }
