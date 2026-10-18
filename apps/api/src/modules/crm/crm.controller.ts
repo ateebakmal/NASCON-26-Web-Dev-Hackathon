@@ -26,7 +26,7 @@ export class CrmController {
   }
 
   @Post("pipelines")
-  @RequirePermission("opportunities:edit")
+  @RequirePermission("pipelines:edit")
   createPipeline(@CurrentUser() user: Caller, @Body() body: { name: string }) {
     return this.crm.createPipeline(user.workspaceId, body.name, {
       userId: user.userId,
@@ -35,7 +35,7 @@ export class CrmController {
   }
 
   @Patch("pipelines/:id")
-  @RequirePermission("opportunities:edit")
+  @RequirePermission("pipelines:edit")
   updatePipeline(
     @CurrentUser() user: Caller,
     @Param("id") id: string,
@@ -48,7 +48,7 @@ export class CrmController {
   }
 
   @Post("pipelines/:id/stages")
-  @RequirePermission("opportunities:edit")
+  @RequirePermission("pipelines:edit")
   createStage(
     @CurrentUser() user: Caller,
     @Param("id") pipelineId: string,
@@ -61,7 +61,7 @@ export class CrmController {
   }
 
   @Post("pipelines/:id/stages/reorder")
-  @RequirePermission("opportunities:edit")
+  @RequirePermission("pipelines:edit")
   reorderStages(
     @CurrentUser() user: Caller,
     @Param("id") pipelineId: string,
@@ -74,7 +74,7 @@ export class CrmController {
   }
 
   @Delete("stages/:id")
-  @RequirePermission("opportunities:delete")
+  @RequirePermission("pipelines:edit")
   deleteStage(
     @CurrentUser() user: Caller,
     @Param("id") id: string,
@@ -87,7 +87,7 @@ export class CrmController {
   }
 
   @Patch("stages/:id")
-  @RequirePermission("opportunities:edit")
+  @RequirePermission("pipelines:edit")
   updateStage(
     @CurrentUser() user: Caller,
     @Param("id") id: string,
@@ -201,7 +201,7 @@ export class CrmController {
   }
 
   @Post("custom-fields")
-  @RequirePermission("opportunities:edit")
+  @RequirePermission("pipelines:edit")
   createCustomField(
     @CurrentUser() user: Caller,
     @Body()
@@ -220,7 +220,7 @@ export class CrmController {
   }
 
   @Delete("custom-fields/:id")
-  @RequirePermission("opportunities:edit")
+  @RequirePermission("pipelines:edit")
   archiveCustomField(@CurrentUser() user: Caller, @Param("id") id: string) {
     return this.crm.archiveCustomField(user.workspaceId, id, {
       userId: user.userId,

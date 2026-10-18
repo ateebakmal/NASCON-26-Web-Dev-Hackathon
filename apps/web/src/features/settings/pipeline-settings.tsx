@@ -30,6 +30,7 @@ export function PipelineSettings() {
   const { data, isLoading, isError } = usePipelineSettings();
   const createPipeline = useCreatePipeline();
   const [newPipeline, setNewPipeline] = React.useState("");
+  const [createError, setCreateError] = React.useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -62,8 +63,15 @@ export function PipelineSettings() {
           loading={createPipeline.isPending}
           disabled={!newPipeline.trim()}
           onClick={async () => {
-            await createPipeline.mutateAsync(newPipeline.trim());
-            setNewPipeline("");
+            setCreateError(null);
+            try {
+              await createPipeline.mutateAsync(newPipeline.trim());
+              setNewPipeline("");
+            } catch (err) {
+              setCreateError(
+                err instanceof ApiError ? err.message : "Could not create the pipeline"
+              );
+            }
           }}
           className="gap-1.5"
         >
@@ -73,6 +81,11 @@ export function PipelineSettings() {
         <p className="w-full text-xs text-text-muted">
           A new pipeline starts with New / In progress / Won / Lost, so it is usable immediately.
         </p>
+        {createError && (
+          <p role="alert" className="w-full text-sm text-danger">
+            {createError}
+          </p>
+        )}
       </Card>
 
       {data.map((pipeline) => (
@@ -88,6 +101,7 @@ function PipelineCard({ pipeline }: { pipeline: SettingsPipeline }) {
   const reorder = useReorderStages();
   const [stageName, setStageName] = React.useState("");
   const [stageType, setStageType] = React.useState<"OPEN" | "WON" | "LOST">("OPEN");
+  const [stageError, setStageError] = React.useState<string | null>(null);
 
   const move = (index: number, direction: -1 | 1) => {
     const ids = pipeline.stages.map((s) => s.id);
@@ -158,16 +172,26 @@ function PipelineCard({ pipeline }: { pipeline: SettingsPipeline }) {
           loading={createStage.isPending}
           disabled={!stageName.trim()}
           onClick={async () => {
-            await createStage.mutateAsync({
-              pipelineId: pipeline.id,
-              name: stageName.trim(),
-              type: stageType,
-            });
-            setStageName("");
+            setStageError(null);
+            try {
+              await createStage.mutateAsync({
+                pipelineId: pipeline.id,
+                name: stageName.trim(),
+                type: stageType,
+              });
+              setStageName("");
+            } catch (err) {
+              setStageError(err instanceof ApiError ? err.message : "Could not add the stage");
+            }
           }}
         >
           Add
         </Button>
+        {stageError && (
+          <p role="alert" className="w-full text-sm text-danger">
+            {stageError}
+          </p>
+        )}
       </div>
     </Card>
   );

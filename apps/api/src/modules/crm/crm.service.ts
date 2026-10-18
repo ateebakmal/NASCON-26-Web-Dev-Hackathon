@@ -388,6 +388,23 @@ export class CrmService {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_|_$/g, "");
+    if (!key) throw new BadRequestException("Give the field a name using letters or numbers.");
+
+    // The unique index covers (workspace, recordType, pipelineId, key), but
+    // Postgres treats NULLs as distinct -- so two "All pipelines" fields with
+    // the same key would NOT collide. Check explicitly instead.
+    const clash = await this.prisma.customFieldDefinition.findFirst({
+      where: {
+        workspaceId,
+        recordType: data.recordType,
+        key,
+        archivedAt: null,
+        pipelineId: data.pipelineId ?? null,
+      },
+    });
+    if (clash) {
+      throw new BadRequestException(`A field called "${data.label}" already exists here.`);
+    }
 
     const field = await this.prisma.$transaction(async (tx) => {
       const created = await tx.customFieldDefinition.create({
@@ -439,11 +456,19 @@ export class CrmService {
   // ----------------------------------------------------------------- pipelines
 
   async createPipeline(workspaceId: string, name: string, actor: Actor) {
+    const trimmed = (name ?? "").trim();
+    if (!trimmed) throw new BadRequestException("Give the pipeline a name.");
+
+    const clash = await this.prisma.pipeline.findFirst({
+      where: { workspaceId, name: trimmed },
+    });
+    if (clash) throw new BadRequestException(`A pipeline called "${trimmed}" already exists.`);
+
     const count = await this.prisma.pipeline.count({ where: { workspaceId } });
     const pipeline = await this.prisma.pipeline.create({
       data: {
         workspaceId,
-        name,
+        name: trimmed,
         position: count,
         isDefault: count === 0,
         // Every pipeline starts usable: the spec requires at least one Open,

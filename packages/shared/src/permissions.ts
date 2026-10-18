@@ -9,6 +9,7 @@ export const RESOURCES = [
   "employees",
   "leads",
   "assignment_rules",
+  "pipelines",
   "audit",
   "integrations",
   // Added in later phases (CRM/integrations), kept here now so permission
@@ -44,6 +45,20 @@ export function permissionKey(resource: Resource, action: Action): PermissionKey
 // The default "Manager" preset seeded at workspace creation. It is a normal,
 // fully editable PermissionSet row from day one -- this constant only seeds
 // its initial contents, nothing in the guard treats "Manager" specially.
+/** Presets become rows with a unique (set, resource, action); a repeated
+ *  entry would fail the constraint, so collapse duplicates here. */
+function dedupe(
+  entries: Array<{ resource: Resource; action: Action }>
+): Array<{ resource: Resource; action: Action }> {
+  const seen = new Set<string>();
+  return entries.filter((e) => {
+    const key = `${e.resource}:${e.action}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export const MANAGER_PRESET: Array<{ resource: Resource; action: Action }> = [
   { resource: "leads", action: "view" },
   { resource: "leads", action: "create" },
@@ -60,12 +75,15 @@ export const MANAGER_PRESET: Array<{ resource: Resource; action: Action }> = [
 // Seeded for baseRole=ADMIN users by default (still an ordinary, editable
 // PermissionSet -- Admin is not hardcoded to bypass the permission system,
 // it is simply handed a broad starting bundle the Owner can narrow later).
-export const ADMIN_PRESET: Array<{ resource: Resource; action: Action }> = RESOURCES.flatMap((resource) =>
-  (["view", "create", "edit", "delete", "export"] as Action[])
-    .filter((a) => ACTIONS.includes(a))
-    .map((action) => ({ resource, action }))
-).concat([
+export const ADMIN_PRESET: Array<{ resource: Resource; action: Action }> = dedupe([
+  ...RESOURCES.flatMap((resource) =>
+    (["view", "create", "edit", "delete", "export"] as Action[]).map((action) => ({
+      resource,
+      action,
+    }))
+  ),
   { resource: "assignment_rules", action: "manage_assignment_rules" },
+  { resource: "pipelines", action: "edit" },
   { resource: "integrations", action: "manage_integrations" },
   { resource: "audit", action: "view_audit" },
   { resource: "leads", action: "assign" },
