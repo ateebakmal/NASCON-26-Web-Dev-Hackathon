@@ -12,9 +12,12 @@ import {
   DialogTrigger,
 } from "../../components/ui/dialog";
 import { ApiError } from "../../lib/api";
-import { useContacts } from "../contacts/api";
+import { useContacts, useCreateContact } from "../contacts/api";
 import { useCreateDeal } from "./api";
 import type { Stage } from "./types";
+
+/** Sentinel for the "create a contact inline" option. */
+const GUEST = "__guest__";
 
 export function AddDealDialog({
   pipelineId,
@@ -24,6 +27,7 @@ export function AddDealDialog({
   stages: Stage[];
 }) {
   const createDeal = useCreateDeal();
+  const createContact = useCreateContact();
   // Only fetch the contact list once the dialog is actually opened.
   const [open, setOpen] = React.useState(false);
   const { data: contacts, isLoading: contactsLoading } = useContacts("");
@@ -33,7 +37,12 @@ export function AddDealDialog({
   const [contactId, setContactId] = React.useState("");
   const [stageId, setStageId] = React.useState("");
   const [tag, setTag] = React.useState("");
+  // Guest path: capture a walk-in/phone enquiry without leaving the dialog.
+  const [guestName, setGuestName] = React.useState("");
+  const [guestPhone, setGuestPhone] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+
+  const isGuest = contactId === GUEST;
 
   // Default to the first stage of the board being viewed.
   React.useEffect(() => {
@@ -45,6 +54,8 @@ export function AddDealDialog({
     setValue("");
     setContactId("");
     setTag("");
+    setGuestName("");
+    setGuestPhone("");
     setStageId(stages[0]?.id ?? "");
     setError(null);
   };
@@ -55,16 +66,28 @@ export function AddDealDialog({
 
     if (!name.trim()) return setError("Give the deal a name.");
     if (!contactId) return setError("Pick the contact this deal belongs to.");
+    if (isGuest && !guestName.trim()) return setError("Give the guest a name.");
     const numericValue = Number(value);
     if (!value || Number.isNaN(numericValue) || numericValue < 0) {
       return setError("Enter a value of zero or more.");
     }
 
     try {
+      // A guest becomes a real contact first, so the deal still has a proper
+      // customer record behind it rather than an orphan.
+      let resolvedContactId = contactId;
+      if (isGuest) {
+        const created = await createContact.mutateAsync({
+          name: guestName.trim(),
+          phone: guestPhone.trim() || undefined,
+        });
+        resolvedContactId = created.id;
+      }
+
       await createDeal.mutateAsync({
         name: name.trim(),
         value: numericValue,
-        contactId,
+        contactId: resolvedContactId,
         pipelineId,
         stageId: stageId || undefined,
         tag: tag.trim() || undefined,
@@ -121,6 +144,7 @@ export function AddDealDialog({
                 <option value="">
                   {contactsLoading ? "Loading contacts…" : "Select a contact…"}
                 </option>
+                <option value={GUEST}>+ Guest / new contact</option>
                 {contacts?.items.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -129,6 +153,28 @@ export function AddDealDialog({
                 ))}
               </Select>
             </label>
+
+            {isGuest && (
+              <div className="flex gap-3 rounded-md border border-dashed border-border p-3">
+                <label className="flex flex-1 flex-col gap-1 text-sm text-text-muted">
+                  Guest name
+                  <Input
+                    required
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    placeholder="Walk-in customer"
+                  />
+                </label>
+                <label className="flex flex-1 flex-col gap-1 text-sm text-text-muted">
+                  Phone (optional)
+                  <Input
+                    value={guestPhone}
+                    onChange={(e) => setGuestPhone(e.target.value)}
+                    placeholder="+92 300 1234567"
+                  />
+                </label>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <label className="flex flex-1 flex-col gap-1 text-sm text-text-muted">
@@ -183,7 +229,7 @@ export function AddDealDialog({
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" loading={createDeal.isPending}>
+            <Button type="submit" loading={createDeal.isPending || createContact.isPending}>
               Create deal
             </Button>
           </DialogFooter>

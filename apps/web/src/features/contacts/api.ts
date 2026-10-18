@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 
 export interface ContactRow {
@@ -60,5 +60,14 @@ export function useContact(id: string | undefined) {
     queryKey: ["contact", id],
     queryFn: () => api.get<ContactDetail>(`/contacts/${id}`),
     enabled: Boolean(id),
+  });
+}
+
+export function useCreateContact() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; phone?: string; email?: string }) =>
+      api.post<ContactRow>("/contacts", input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contacts"] }),
   });
 }

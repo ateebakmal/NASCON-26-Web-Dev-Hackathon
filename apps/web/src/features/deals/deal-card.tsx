@@ -26,7 +26,15 @@ export function formatValue(value: Deal["value"]) {
   return String(n);
 }
 
-export function DealCard({ deal, dragging }: { deal: Deal; dragging?: boolean }) {
+export function DealCard({
+  deal,
+  dragging,
+  onOpen,
+}: {
+  deal: Deal;
+  dragging?: boolean;
+  onOpen?: (deal: Deal) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: deal.id,
   });
@@ -42,6 +50,9 @@ export function DealCard({ deal, dragging }: { deal: Deal; dragging?: boolean })
       style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
       {...listeners}
+      // dnd-kit only starts a drag after 5px of movement, so a plain click
+      // still reaches this handler.
+      onClick={() => onOpen?.(deal)}
       className={cn(
         "cursor-grab rounded-lg border border-border bg-surface p-3 shadow-card transition-shadow active:cursor-grabbing",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",

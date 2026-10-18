@@ -29,6 +29,7 @@ import { useBoard, useMoveStage } from "./api";
 import { DealCard, formatValue } from "./deal-card";
 import { RequiredFieldsDialog } from "./required-fields-dialog";
 import { AddDealDialog } from "./add-deal-dialog";
+import { DealDrawer } from "./deal-drawer";
 import type { Deal, RequiredFieldsError, Stage } from "./types";
 
 const STAGE_PILL: Record<string, string> = {
@@ -47,6 +48,7 @@ export function DealsPage() {
     (RequiredFieldsError & { dealId: string }) | null
   >(null);
   const [toast, setToast] = React.useState<string | null>(null);
+  const [openDeal, setOpenDeal] = React.useState<Deal | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -170,11 +172,14 @@ export function DealsPage() {
               key={stage.id}
               stage={stage}
               deals={dealsByStage.get(stage.id) ?? []}
+              onOpenDeal={setOpenDeal}
             />
           ))}
           <DragOverlay>{activeDeal && <DealCard deal={activeDeal} dragging />}</DragOverlay>
         </DndContext>
       </div>
+
+      <DealDrawer deal={openDeal} onClose={() => setOpenDeal(null)} />
 
       {blocked && (
         <RequiredFieldsDialog
@@ -197,7 +202,15 @@ export function DealsPage() {
   );
 }
 
-function StageColumn({ stage, deals }: { stage: Stage; deals: Deal[] }) {
+function StageColumn({
+  stage,
+  deals,
+  onOpenDeal,
+}: {
+  stage: Stage;
+  deals: Deal[];
+  onOpenDeal: (deal: Deal) => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const total = deals.reduce((sum, d) => sum + Number(d.value ?? 0), 0);
 
@@ -241,7 +254,7 @@ function StageColumn({ stage, deals }: { stage: Stage; deals: Deal[] }) {
       <SortableContext items={deals.map((d) => d.id)} strategy={verticalListSortingStrategy}>
         <div className="flex min-h-[120px] flex-col gap-2">
           {deals.map((deal) => (
-            <DealCard key={deal.id} deal={deal} />
+            <DealCard key={deal.id} deal={deal} onOpen={onOpenDeal} />
           ))}
           {deals.length === 0 && (
             <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-sm text-text-muted">
