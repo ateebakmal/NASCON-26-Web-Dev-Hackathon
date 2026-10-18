@@ -93,7 +93,13 @@ export class UsersService {
 
     const updated = await this.prisma.user.update({
       where: { id: targetUserId },
-      data: { baseRole: data.baseRole, permissionSetId: data.permissionSetId },
+      data: {
+        baseRole: data.baseRole,
+        // "No group" arrives as an empty string from a <select>; writing that
+        // straight through would fail the foreign key instead of clearing it.
+        permissionSetId:
+          data.permissionSetId === undefined ? undefined : data.permissionSetId || null,
+      },
     });
 
     await this.permissions.invalidateUserCache(targetUserId);

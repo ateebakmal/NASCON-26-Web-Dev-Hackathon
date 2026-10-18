@@ -9,9 +9,9 @@ export class PermissionsController {
   constructor(private readonly permissions: PermissionsService) {}
 
   @Get()
-  // Owner/Admin manage permission sets; gated by baseRole in the service-level
-  // check below rather than a bespoke permission key, since this IS the
-  // permission-management surface itself.
+  // The list names every role and what it can reach, so it is not public to
+  // the workspace -- reading it is its own permission.
+  @RequirePermission("permission_sets:view")
   async list(@CurrentUser() user: { workspaceId: string }) {
     return this.permissions.listPermissionSets(user.workspaceId);
   }

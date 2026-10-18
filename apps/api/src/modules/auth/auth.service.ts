@@ -112,7 +112,10 @@ export class AuthService {
         permissionSet: { select: { id: true, name: true } },
       },
     });
-    return user;
+    // Shipped with the identity so the client can gate controls on the same
+    // keys the guard enforces, instead of guessing from baseRole.
+    const permissions = await this.permissions.listPermissionKeys(userId);
+    return { ...user, permissions };
   }
 
   private async createSession(userId: string, meta?: { ip?: string; userAgent?: string }) {

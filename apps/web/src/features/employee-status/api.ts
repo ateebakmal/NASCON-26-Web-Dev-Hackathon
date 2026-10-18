@@ -26,3 +26,16 @@ export function useSetMyAvailability() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee-status"] }),
   });
 }
+
+/** Lets an Admin set someone else's availability, not just their own (F3.2). */
+export function useSetAvailabilityFor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, availability }: { userId: string; availability: Availability }) =>
+      api.patch(`/employee-status/${userId}`, { availability }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-status"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}

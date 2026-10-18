@@ -17,10 +17,12 @@ export interface PermissionSetRow {
   users: Array<{ id: string; name: string; email: string }>;
 }
 
-export function usePermissionSets() {
+/** `enabled` lets a caller skip the request for a viewer who cannot read it. */
+export function usePermissionSets(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["permission-sets"],
     queryFn: () => api.get<PermissionSetRow[]>("/permission-sets"),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -44,10 +46,11 @@ export interface WorkspaceUser {
   permissionSet: { id: string; name: string } | null;
 }
 
-export function useWorkspaceUsers() {
+export function useWorkspaceUsers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["workspace-users"],
     queryFn: () => api.get<WorkspaceUser[]>("/users"),
+    enabled: options?.enabled ?? true,
   });
 }
 

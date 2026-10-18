@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Badge } from "../../components/ui/badge";
 import { cn } from "../../lib/utils";
 import { usePermissionSets, useUpdatePermissionSet, type PermissionSetRow } from "./api";
-import { MembersPanel } from "./members-panel";
 
 // Proves "Manager is a configurable bundle, not a hardcoded role": every row
 // here -- including the seeded "Manager" preset -- is edited through this
@@ -19,6 +18,7 @@ export function PermissionSetsPage() {
         <h1 className="text-xl font-semibold text-text">Permission Sets</h1>
         <p className="text-sm text-text-muted">
           Every set here, including "Manager", is an ordinary editable bundle of permissions.
+          Assign people to them on the Team page.
         </p>
       </div>
 
@@ -32,10 +32,7 @@ export function PermissionSetsPage() {
           Could not load permission sets.
         </p>
       ) : (
-        <>
-          <MembersPanel sets={data ?? []} />
-          {data?.map((set) => <PermissionSetCard key={set.id} set={set} />)}
-        </>
+        data?.map((set) => <PermissionSetCard key={set.id} set={set} />)
       )}
     </div>
   );

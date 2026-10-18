@@ -59,6 +59,30 @@ export class PermissionsService {
     );
   }
 
+  /**
+   * Every permission the user effectively holds, for the client to gate UI
+   * with. The Owner gets the wildcard rather than an expanded list so the two
+   * sides cannot drift when a new resource is added.
+   */
+  async listPermissionKeys(userId: string): Promise<string[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { permissionSet: { include: { permissions: true } }, permissionOverrides: true },
+    });
+    if (!user) return [];
+    if (user.baseRole === "OWNER") return ["*"];
+
+    const keys = new Set(
+      (user.permissionSet?.permissions ?? []).map((p) => `${p.resource}:${p.action}`)
+    );
+    for (const o of user.permissionOverrides) {
+      const key = `${o.resource}:${o.action}`;
+      if (o.effect === "grant") keys.add(key);
+      else keys.delete(key);
+    }
+    return [...keys];
+  }
+
   /** Fields to strip from a resource's response for this user, per their PermissionSetItem.fieldMask. */
   async getFieldMask(userId: string, resource: Resource, action: Action): Promise<string[]> {
     const user = await this.prisma.user.findUnique({

@@ -11,6 +11,8 @@ interface MeResponse {
   workspaceId: string;
   workspace: { name: string };
   permissionSet: { id: string; name: string } | null;
+  /** Effective permission keys; the Owner gets the wildcard "*". */
+  permissions: string[];
 }
 
 interface AuthContextValue {
@@ -85,6 +87,19 @@ export function useAuth() {
   const ctx = React.useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+}
+
+/**
+ * Gates UI on the same keys the API guard enforces. This only hides controls
+ * the user cannot use -- the server still refuses the call either way.
+ */
+export function useCan() {
+  const { user } = useAuth();
+  const held = React.useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  return React.useCallback(
+    (key: `${string}:${string}`) => held.has("*") || held.has(key),
+    [held]
+  );
 }
 
 function errorMessage(err: unknown): string {
