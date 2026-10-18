@@ -78,4 +78,6 @@ export const SALES_REP_PRESET: Array<{ resource: Resource; action: Action }> = [
   { resource: "leads", action: "edit" },
   { resource: "leads", action: "acknowledge" },
   { resource: "employees", action: "view" },
+  { resource: "payments", action: "view" },
+  { resource: "payments", action: "create" },
 ];

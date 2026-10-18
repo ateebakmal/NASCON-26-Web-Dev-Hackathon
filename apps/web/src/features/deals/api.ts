@@ -35,3 +35,23 @@ export function useMoveStage() {
     },
   });
 }
+
+export interface CreateDealInput {
+  name: string;
+  value: number;
+  contactId: string;
+  pipelineId?: string;
+  stageId?: string;
+  tag?: string;
+}
+
+export function useCreateDeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateDealInput) => api.post("/opportunities", input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}

@@ -477,11 +477,20 @@ model Payment {
   currency    String        @default("PKR")
   status      PaymentStatus @default(PENDING)
   provider    String        @default("stripe")
+  // Stripe Checkout Session id; unique per workspace so a webhook delivered
+  // twice can never record the same payment twice (I2.4).
   providerRef String?
+  checkoutUrl String?
+  // Amount actually refunded, so a partial refund is represented honestly
+  // rather than flipping the whole payment to REFUNDED (I2.5).
+  refundedAmount Decimal    @default(0) @db.Decimal(14, 2)
   requestedBy String?
   paidAt      DateTime?
+  expiresAt   DateTime?
   createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @default(now()) @updatedAt
 
+  @@unique([workspaceId, providerRef])
   @@index([workspaceId, status])
   @@index([opportunityId])
 }

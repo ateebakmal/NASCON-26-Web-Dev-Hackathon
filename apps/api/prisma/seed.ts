@@ -332,7 +332,9 @@ async function main() {
         amount: deal.value,
         currency: "PKR",
         status: "PAID",
-        providerRef: `pi_seed_${deal.id.slice(0, 8)}`,
+        // Full id, not a prefix: cuids share a leading segment, so slicing
+        // produced collisions across deals.
+        providerRef: `pi_seed_${deal.id}`,
         requestedBy: deal.ownerId,
         paidAt: new Date(),
       },

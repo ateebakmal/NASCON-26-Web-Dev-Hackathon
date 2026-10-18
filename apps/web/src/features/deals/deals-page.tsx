@@ -18,7 +18,6 @@ import {
   List,
   Loader2,
   MoreHorizontal,
-  Plus,
   Sparkles,
   Table2,
 } from "lucide-react";
@@ -29,6 +28,7 @@ import { useToolbar } from "../../app/layout";
 import { useBoard, useMoveStage } from "./api";
 import { DealCard, formatValue } from "./deal-card";
 import { RequiredFieldsDialog } from "./required-fields-dialog";
+import { AddDealDialog } from "./add-deal-dialog";
 import type { Deal, RequiredFieldsError, Stage } from "./types";
 
 const STAGE_PILL: Record<string, string> = {
@@ -74,13 +74,13 @@ export function DealsPage() {
           <ViewTab icon={Kanban} label="Kanban" active />
           <ViewTab icon={Table2} label="Timeline" />
         </div>
-        <Button variant="dark" size="sm" className="gap-1.5">
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Add New
-        </Button>
+        <AddDealDialog pipelineId={data?.pipeline.id} stages={data?.stages ?? []} />
       </div>
     </div>,
-    []
+    // Rebuilt once the board resolves so the dialog gets the real pipeline
+    // and stage list. Keyed on the pipeline only, so a routine board refetch
+    // does not remount the dialog while someone is typing in it.
+    [data?.pipeline.id]
   );
 
   const dealsByStage = React.useMemo(() => {

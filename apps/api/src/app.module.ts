@@ -18,6 +18,7 @@ import { LeadsModule } from "./modules/leads/leads.module";
 import { CrmModule } from "./modules/crm/crm.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { MessagingModule } from "./modules/messaging/messaging.module";
+import { PaymentsModule } from "./modules/payments/payments.module";
 
 import { SessionAuthGuard } from "./common/guards/session-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
@@ -41,6 +42,7 @@ import { FieldMaskInterceptor } from "./common/interceptors/field-mask.intercept
     CrmModule,
     DashboardModule,
     MessagingModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [
