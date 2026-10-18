@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import animate from "tailwindcss-animate";
 
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
@@ -48,5 +49,7 @@ export default {
       },
     },
   },
-  plugins: [],
+  // Supplies animate-in/animate-out, slide-in-from-*, fade-* and zoom-*,
+  // which the Radix-driven Sheet and Dialog key off data-[state].
+  plugins: [animate],
 } satisfies Config;

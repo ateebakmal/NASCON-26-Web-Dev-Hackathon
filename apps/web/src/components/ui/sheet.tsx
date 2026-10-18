@@ -20,9 +20,9 @@ export const SheetOverlay = React.forwardRef<
     ref={ref}
     className={cn(
       "fixed inset-0 z-50 bg-text/30 backdrop-blur-[2px]",
-      "data-[state=open]:animate-in data-[state=closed]:animate-out",
-      "data-[state=open]:fade-in data-[state=closed]:fade-out",
-      "motion-reduce:animate-none",
+      "data-[state=open]:animate-in data-[state=open]:fade-in-0",
+      "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+      "duration-300 motion-reduce:animate-none",
       className
     )}
     {...props}
@@ -39,12 +39,14 @@ export const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-y-0 z-50 flex h-full w-full flex-col border-border bg-surface shadow-pop",
-        "transition-transform duration-200 ease-out motion-reduce:transition-none",
-        side === "right"
-          ? "right-0 border-l sm:max-w-xl data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right"
-          : "left-0 border-r sm:max-w-xl data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
+        "fixed inset-y-0 z-50 flex h-full w-full flex-col border-border bg-surface shadow-pop sm:max-w-xl",
+        // Radix keeps the node mounted while data-state=closed animates out,
+        // so the panel slides away rather than vanishing.
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "duration-300 ease-out motion-reduce:animate-none",
+        side === "right"
+          ? "right-0 border-l data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right"
+          : "left-0 border-r data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
         className
       )}
       {...props}
